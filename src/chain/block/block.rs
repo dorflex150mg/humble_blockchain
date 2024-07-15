@@ -12,7 +12,7 @@ pub mod block {
     }
 
     impl Block {
-        fn new(index: u64, previous_hash: String, data: String) -> Block { 
+        pub fn new(index: u64, previous_hash: String, data: String) -> Block { 
             let timestamp = SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap()

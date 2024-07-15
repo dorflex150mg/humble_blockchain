@@ -10,12 +10,15 @@ pub mod chain {
     }
 
     impl Chain {
-        fn new(name: String) -> Self {
-            Chain {
+        pub fn new(name: String) -> Self {
+            let genesis_block = Block::new(0, "0".repeat(64), "0".repeat(64));
+            let mut chain = Chain {
                 name,
                 blocks: vec![],
                 len: 0,
-            }
+            };
+            chain.add_block(genesis_block).unwrap();
+            chain
         }
 
         fn check_block_data(&self, data: String, previous_hash: String) -> Result<(), String> {
@@ -33,8 +36,13 @@ pub mod chain {
         pub fn add_block(&mut self, block: Block) -> Result<(), String> {
             let data = block.data.clone();
             let previous_hash = block.previous_hash.clone();
-            self.check_block_data(data, previous_hash)?;
+            if block.index != 0 {
+                self.check_block_data(data, previous_hash)?;
+            }
+            let hash = block.hash.clone();
             self.blocks.push(block);
+            //todo: create display for block
+            println!("added block {}", hash);
             Ok(())
         }
 
