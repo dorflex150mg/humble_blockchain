@@ -49,5 +49,9 @@ pub mod chain {
         pub fn get_len(self) -> usize {
             self.len
         }
+
+        pub fn print_last_block(self) {
+            println!("{}", self.blocks.last().unwrap()); 
+        }
     }
 }

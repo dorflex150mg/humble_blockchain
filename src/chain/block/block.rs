@@ -1,6 +1,7 @@
 pub mod block {
     use std::time::{SystemTime, UNIX_EPOCH, Duration};
     use sha2::{Digest, Sha256};
+    use std::fmt;
 
     pub struct Block {
         pub index: u64,
@@ -39,6 +40,12 @@ pub mod block {
             hasher.update(str_block);
             let digest = hasher.finalize();
             format!("{:x}", digest)
+        }
+    }
+
+    impl fmt::Display for Block {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "index: {}, previous hash: {}, hash: {}, timestamp: {}", self.index, self.previous_hash, self.hash, self.timestamp)
         }
     }
 }

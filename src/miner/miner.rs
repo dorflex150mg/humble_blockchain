@@ -3,6 +3,7 @@ pub mod miner {
     use std::sync::{Arc, Mutex};
     use crate::chain::block::block::block::Block;
     use rand::{self, Rng};
+    use std::fmt;
 
 
     pub struct Miner {
@@ -11,8 +12,7 @@ pub mod miner {
     }
     
     impl Miner {
-    
-        pub fn new(self, id: u64, name: String) -> Self {
+        pub fn new(id: u64, name: String) -> Self {
             Miner {
                 id,
                 name,
@@ -37,6 +37,12 @@ pub mod miner {
                     },
                 }
             }
+        }
+    }
+
+    impl fmt::Display for Miner {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "id: {}, name: {}", self.id, self.name)
         }
     }
 }
