@@ -8,7 +8,7 @@ pub mod block {
         pub hash: String,
         pub data: String,
         timestamp: u64,
-        nonce: u64,
+        pub nonce: u64,
     }
 
     impl Block {
@@ -27,7 +27,7 @@ pub mod block {
             }
         }
 
-        fn calculate_hash(&mut self) -> String {
+        pub fn calculate_hash(&mut self) -> String {
             let str_block = format!("{}{}{}{}{}",
                              &self.hash,
                              &self.previous_hash,

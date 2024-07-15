@@ -26,7 +26,7 @@ pub mod chain {
             hasher.update(data);
             let digest = hasher.finalize();  
             let digest_str = format!("{:x}", digest);
-            if digest_str.get(..1).unwrap() != "0" || previous_hash != self.blocks.last().unwrap().hash {
+            if digest_str.chars().next().unwrap() != '0' || previous_hash != self.blocks.last().unwrap().hash {
                 Err(String::from("Invalid Hash digest"))
             } else { 
                 Ok(())

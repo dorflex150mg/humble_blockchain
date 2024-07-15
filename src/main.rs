@@ -7,6 +7,12 @@ mod chain {
     }
 }
 
+mod miner {
+    pub mod miner;
+}
+
+use crate::miner::miner::miner::Miner as Miner;
+
 use crate::chain::chain::chain::Chain as Chain;
 
 fn main() {
