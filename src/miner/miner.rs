@@ -26,7 +26,7 @@ pub mod miner {
                 let str_digest = block.calculate_hash();
                 let mut won = winner.lock().unwrap(); 
                 match *won {
-                    Some(id) => return None,
+                    Some(_) => return None,
                     None => {
                         if str_digest.chars().next().unwrap() == '0' {
                             *won = Some(self.id); 

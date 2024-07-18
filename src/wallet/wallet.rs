@@ -1,13 +1,18 @@
 pub mod wallet {
+
+    use crate::transaction::transaction::transaction::Transaction;
  
     use ring::rand::{SystemRandom, SecureRandom};
-    use ring::signature::{Ed25519KeyPair, KeyPair, Signature, ED25519};
+    use ring::signature::{Ed25519KeyPair, KeyPair};
 
     pub struct Wallet {
-        name: String,
-        pub_key: String,
-        priv_key: String,
-        balance: f64,
+        pub name: String,
+        pub balance: f64,
+        pub key_pair: Ed25519KeyPair,
+    }
+
+    pub enum TransactionErr {
+        InsuficientBalance,
     }
 
     fn generate_key_pair() -> Ed25519KeyPair {
@@ -26,10 +31,43 @@ pub mod wallet {
             let key_pair = generate_key_pair();
             Wallet {
                 name,
-                pub_key: String::from(""),
-                priv_key: String::from(""),
                 balance: 0.0,
+                key_pair,
             }
+        }
+
+        fn check_balance(&self, amount: f64) -> Result<(), TransactionErr> {
+            if amount > self.balance { 
+                return Err(TransactionErr::InsuficientBalance);
+            }
+            Ok(())
+        }
+
+        fn sign(&self, mut transaction: Transaction) -> Transaction {
+            let arr_sender: &[u8] = &transaction.sender.clone();
+            let arr_receiver: &[u8] = &transaction.receiver.clone();
+            let members = [arr_sender,
+                           arr_receiver, 
+                           &transaction.timestamp.to_ne_bytes(),//contrived 
+                           &transaction.amount.to_ne_bytes()];
+            let vec: Vec<u8> = members.concat();
+            let bytes = &vec; //little trick to concat all bytes
+            transaction.signature = Some(self.key_pair.sign(bytes));
+            transaction
+        }
+            
+        pub fn submit_transaction(&self, receiver: Vec<u8>, amount: f64) 
+                                   -> Result<Transaction, TransactionErr> {
+            self.check_balance(amount)?;
+            Ok(
+                self.sign(
+                    Transaction::new(
+                        self.key_pair.public_key().as_ref().to_vec(), 
+                        receiver, 
+                        amount,
+                    )
+                )
+            )
         }
     }
 }
