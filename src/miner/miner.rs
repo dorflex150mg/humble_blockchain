@@ -2,6 +2,7 @@ pub mod miner {
 
     use std::sync::{Arc, Mutex};
     use crate::chain::block::block::block::Block;
+    use crate::Wallet;
     use rand::{self, Rng};
     use std::fmt;
 
@@ -9,13 +10,16 @@ pub mod miner {
     pub struct Miner {
         pub id: u64,
         pub name: String,
+        pub wallet: Wallet,
     }
     
     impl Miner {
         pub fn new(id: u64, name: String) -> Self {
+            let w_name = name.clone();
             Miner {
                 id,
                 name,
+                wallet: Wallet::new(w_name),
             }
         }
 
