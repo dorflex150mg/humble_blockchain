@@ -57,9 +57,6 @@ pub mod wallet {
             for mut i in coins {
                 vec.append(&mut i);
             }
-            //coins.iter().map(|mut coin| {
-            //        vec.append(&mut coin);
-            //      }).collect::<()>();
             let bytes = &vec; 
             transaction.signature = Some(self.key_pair.sign(bytes));
             transaction

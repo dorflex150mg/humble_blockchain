@@ -3,35 +3,49 @@ pub mod block {
     use sha2::{Digest, Sha256};
     use std::fmt;
 
+
+    pub const MAX_TRANSACTIONS: u64 = 8;
+
+    #[derive(Clone)]
     pub struct Block {
-        pub index: u64,
+        pub index: usize,
         pub previous_hash: String,
         pub hash: String,
         pub data: String,
-        timestamp: u64,
+        pub timestamp: u64,
         pub nonce: u64,
     }
 
     impl Block {
-        pub fn new(index: u64, previous_hash: String, data: String) -> Block { 
+        pub fn new(index: usize, previous_hash: String, data: String, hash: Option<String>) -> Block { 
             let timestamp = SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap()
                             .as_secs();
+            let private_hash = match hash {
+                Some(h) => h,
+                None => String::new(),
+            };
             Block {
                 index,
                 previous_hash,
                 data,
                 timestamp,
-                hash: String::new(),
+                hash: private_hash, 
                 nonce: 0,
             }
         }
 
+        pub fn get_hash(&self) -> String {
+            self.hash.clone()
+        }
+
+
         pub fn calculate_hash(&mut self) -> String {
-            let str_block = format!("{}{}{}{}{}",
+            let str_block = format!("{}{}{}{}{}{}",
                              &self.hash,
                              &self.previous_hash,
+                             self.data,
                              self.timestamp,
                              self.index,
                              self.nonce,
@@ -39,7 +53,8 @@ pub mod block {
             let mut hasher = Sha256::new();
             hasher.update(str_block);
             let digest = hasher.finalize();
-            format!("{:x}", digest)
+            self.hash = format!("{:x}", digest);
+            self.hash.clone()
         }
     }
 

@@ -2,6 +2,7 @@ pub mod transaction {
     use std::fmt;
     use std::time::{SystemTime, UNIX_EPOCH};
     use ring::signature::Signature;
+    use base64::{Engine as _, engine::general_purpose};
 
     pub struct Transaction {
         pub sender: Vec<u8>,
@@ -24,6 +25,16 @@ pub mod transaction {
                 coins,
                 signature: None,
             }
+        }
+
+        pub fn to_base64(&self) -> String {
+            let joined_coins = self.coins.join("");
+            format!("{}{}{}{}", 
+                general_purpose::STANDARD.encode(&self.sender).to_string(), 
+                general_purpose::STANDARD.encode(&self.receiver).to_string(),
+                self.timestamp.to_string(),
+                general_purpose::STANDARD.encode(&self.signature.unwrap()).to_string()
+            )
         }
     }
 

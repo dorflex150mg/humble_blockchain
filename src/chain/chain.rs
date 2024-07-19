@@ -11,7 +11,7 @@ pub mod chain {
 
     impl Chain {
         pub fn new(name: String) -> Self {
-            let genesis_block = Block::new(0, "0".repeat(64), "0".repeat(64));
+            let mut genesis_block = Block::new(0, "0".repeat(64), "0".repeat(64), Some("0".repeat(64)));
             let mut chain = Chain {
                 name,
                 blocks: vec![],
@@ -33,6 +33,10 @@ pub mod chain {
             }
         }
 
+        pub fn get_last_block(&self) -> Block {
+            self.blocks.iter().last().unwrap().clone() //impossible to have a chain with 0 blocks
+        }
+
         pub fn add_block(&mut self, block: Block) -> Result<(), String> {
             let data = block.data.clone();
             let previous_hash = block.previous_hash.clone();
@@ -46,11 +50,11 @@ pub mod chain {
             Ok(())
         }
 
-        pub fn get_len(self) -> usize {
+        pub fn get_len(&self) -> usize {
             self.len
         }
 
-        pub fn print_last_block(self) {
+        pub fn print_last_block(&self) {
             println!("{}", self.blocks.last().unwrap()); 
         }
     }
