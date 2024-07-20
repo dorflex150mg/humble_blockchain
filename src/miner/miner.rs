@@ -38,7 +38,6 @@ pub mod miner {
             }
         }
 
-
         pub fn mine(&mut self, mut block: Block) -> Option<Block> {
             let mut count = 0;
             loop {
@@ -84,17 +83,21 @@ pub mod miner {
                                                                                    // as argument
             let index = self.chain_meta.clone().unwrap().len + 1; 
             let previous_hash = self.chain_meta.clone().unwrap().last_hash;
-            let encoded_transactions: Vec<String> = self.transactions.iter().map(|transaction| {
+            let mut encoded_transactions: Vec<String> = self.transactions.iter().map(|transaction| {
                                                                transaction.to_base64()
                                                             }).collect();
+            encoded_transactions.push(hash.clone());
             let data = encoded_transactions.join("");
+            self.wallet.add_coin(hash.clone());
             Block::new(index, previous_hash, data, Some(hash))
         }
     }
 
     impl fmt::Display for Miner {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "id: {}, name: {}", self.id, self.name)
+            //println!("{}:\n{}", "miner wallet: ", self.wallet);
+            let joint_coins = self.wallet.coins.join(",");
+            write!(f, "id: {}, name: {}, wallet: {}", self.id, self.name, joint_coins)
         }
     }
 }

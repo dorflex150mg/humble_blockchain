@@ -39,4 +39,5 @@ fn main() {
     miner.set_chain_meta(my_chain.get_len(), hash);
     let block = miner.mine(last_block);
     println!("Block mined: {}", block.unwrap());
+    println!("Miner after block:\n{}", miner);
 }

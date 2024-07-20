@@ -4,6 +4,7 @@ pub mod wallet {
  
     use ring::rand::{SystemRandom};
     use ring::signature::{Ed25519KeyPair, KeyPair};
+    use std::fmt;
 
     pub struct Wallet {
         pub name: String,
@@ -35,6 +36,10 @@ pub mod wallet {
                 coins: vec![],
                 key_pair,
             }
+        }
+
+        pub fn add_coin(&mut self, coin: String) {
+            self.coins.push(coin);
         }
 
         fn check_balance(&self, amount: usize) -> Result<(), TransactionErr> {
@@ -78,6 +83,13 @@ pub mod wallet {
                     )
                 )
             )
+        }
+    }
+
+    impl fmt::Display for Wallet {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { 
+            let joint_coins = self.coins.join(",\n");
+            write!(f, "{}: {{\n{}}}", self.name, joint_coins)
         }
     }
 }
