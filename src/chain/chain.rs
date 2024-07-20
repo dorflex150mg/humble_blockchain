@@ -8,6 +8,13 @@ pub mod chain {
         blocks: Vec<Block>,
         len: usize,
     }
+    
+    #[derive(Debug)]
+    pub enum BlockCheckError {
+        InvalidPrefix,
+        NotInChain {expected: String, got: String},
+        WrongHash {expected: String, got: String},
+    }
 
     impl Chain {
         pub fn new(name: String) -> Self {
@@ -21,13 +28,20 @@ pub mod chain {
             chain
         }
 
-        fn check_block_data(&self, data: String, previous_hash: String) -> Result<(), String> {
+        fn check_block_data(&self, data: String, previous_hash: String, block_hash: String) -> Result<(), BlockCheckError> {
             let mut hasher = Sha256::new();
             hasher.update(data);
             let digest = hasher.finalize();  
             let digest_str = format!("{:x}", digest);
-            if digest_str.chars().next().unwrap() != '0' || previous_hash != self.blocks.last().unwrap().hash {
-                Err(String::from("Invalid Hash digest"))
+            if digest_str.chars().next().unwrap() != '0' {
+                return Err(BlockCheckError::InvalidPrefix);
+            }
+            let last_chain_hash = self.blocks.last().unwrap().hash.clone(); 
+            if previous_hash != last_chain_hash {
+                return Err(BlockCheckError::NotInChain {expected: previous_hash, got: last_chain_hash}); 
+            }
+            if digest_str != block_hash {
+                Err(BlockCheckError::WrongHash {expected: digest_str, got: block_hash})
             } else { 
                 Ok(())
             }
@@ -37,16 +51,24 @@ pub mod chain {
             self.blocks.iter().last().unwrap().clone() //impossible to have a chain with 0 blocks
         }
 
-        pub fn add_block(&mut self, block: Block) -> Result<(), String> {
-            let data = block.data.clone();
+        pub fn add_block(&mut self, block: Block) -> Result<(), BlockCheckError> {
+            let str_block = format!("{}{}{}{}{}{}",
+                             &block.hash,
+                             &block.previous_hash,
+                             block.data,
+                             block.timestamp,
+                             block.index,
+                             block.nonce,
+            );
+            let data = str_block.clone();
             let previous_hash = block.previous_hash.clone();
+            let block_hash = block.hash.clone();
+            println!("checking hash: {}", &block_hash);
             if block.index != 0 {
-                self.check_block_data(data, previous_hash)?;
+                self.check_block_data(data, previous_hash, block_hash)?;
             }
-            let hash = block.hash.clone();
             self.blocks.push(block);
             //todo: create display for block
-            println!("added block {}", hash);
             Ok(())
         }
 

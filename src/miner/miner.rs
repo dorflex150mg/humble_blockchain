@@ -38,7 +38,7 @@ pub mod miner {
             }
         }
 
-        pub fn mine(&mut self, mut block: Block) -> Option<Block> {
+        pub fn mine(&mut self, mut block: Block) -> Block {
             let mut count = 0;
             loop {
                 count += 1;
@@ -47,7 +47,7 @@ pub mod miner {
                 let str_digest = block.calculate_hash();
                 if str_digest.chars().next().unwrap() == '0' {
                     println!("found digest: {} in attept: {}", str_digest.clone(), count);
-                    return Some(self.create_new_block(str_digest));
+                    return self.create_new_block(str_digest);
                 } else {
                     continue;
                 }

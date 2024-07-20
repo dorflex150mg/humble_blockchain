@@ -38,9 +38,20 @@ pub mod wallet {
             }
         }
 
+
+        pub fn get_pub_key(&self) -> Vec<u8> {
+            self.key_pair.public_key().as_ref().to_vec().clone() 
+        }
+
         pub fn add_coin(&mut self, coin: String) {
             self.coins.push(coin);
         }
+
+        pub fn get_coins(&mut self) -> Vec<String> {
+            self.coins.iter().map(|coin| {
+                                coin.clone()
+                            }).collect()
+         }
 
         fn check_balance(&self, amount: usize) -> Result<(), TransactionErr> {
             if amount > self.coins.len() { 
@@ -49,7 +60,7 @@ pub mod wallet {
             Ok(())
         }
 
-        fn sign(&self, mut transaction: Transaction) -> Transaction {
+        pub fn sign(&self, mut transaction: Transaction) -> Transaction {
             let arr_sender: &[u8] = &transaction.sender.clone();
             let arr_receiver: &[u8] = &transaction.receiver.clone();
             let members = [arr_sender,

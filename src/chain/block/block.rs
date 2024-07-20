@@ -6,7 +6,7 @@ pub mod block {
 
     pub const MAX_TRANSACTIONS: u64 = 8;
 
-    #[derive(Clone)]
+    #[derive(Default, Debug, Clone)]
     pub struct Block {
         pub index: usize,
         pub previous_hash: String,
