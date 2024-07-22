@@ -1,12 +1,16 @@
 pub mod chain {
 
     use crate::chain::block::block::block::Block;
+    use std::fmt;
     use sha2::{Digest, Sha256};
+
+    const interval: u64 = 60; //difficulty increases if mining a block takes more than 1 minute
     
     pub struct Chain {
         name: String,
         blocks: Vec<Block>,
         len: usize,
+        pub difficulty: usize,
     }
     
     #[derive(Debug)]
@@ -16,13 +20,25 @@ pub mod chain {
         WrongHash {expected: String, got: String},
     }
 
+
+    impl fmt::Display for BlockCheckError {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match self {
+                BlockCheckError::InvalidPrefix => write!(f, "Invalid prefix - Not enough \"0\"'s at the beginning"),
+                BlockCheckError::NotInChain {expected, got} => write!(f, "Previous hash not in chain. Expected: {}, but got: {}", expected, got),
+                BlockCheckError::WrongHash {expected, got} => write!(f, "Wrong hash. Expected: {}, but got: {}", expected, got),
+            }
+        }
+    }
+
     impl Chain {
         pub fn new(name: String) -> Self {
-            let mut genesis_block = Block::new(0, "0".repeat(64), "0".repeat(64), Some("0".repeat(64)));
+            let genesis_block = Block::new(0, "0".repeat(64), "0".repeat(64), Some("0".repeat(64)));
             let mut chain = Chain {
                 name,
                 blocks: vec![],
                 len: 0,
+                difficulty: 1,
             };
             chain.add_block(genesis_block).unwrap();
             chain
@@ -33,7 +49,7 @@ pub mod chain {
             hasher.update(data);
             let digest = hasher.finalize();  
             let digest_str = format!("{:x}", digest);
-            if digest_str.chars().next().unwrap() != '0' {
+            if !digest_str.starts_with(&"0".repeat(self.difficulty)) {
                 return Err(BlockCheckError::InvalidPrefix);
             }
             let last_chain_hash = self.blocks.last().unwrap().hash.clone(); 
@@ -44,6 +60,12 @@ pub mod chain {
                 Err(BlockCheckError::WrongHash {expected: digest_str, got: block_hash})
             } else { 
                 Ok(())
+            }
+        }
+
+        fn check_difficulty(&mut self, block_timestamp: u64) {
+            if block_timestamp > self.blocks.iter().last().unwrap().timestamp + interval { 
+                self.difficulty += 1;
             }
         }
 
@@ -67,8 +89,8 @@ pub mod chain {
             if block.index != 0 {
                 self.check_block_data(data, previous_hash, block_hash)?;
             }
+            self.check_difficulty(block.timestamp);
             self.blocks.push(block);
-            //todo: create display for block
             Ok(())
         }
 

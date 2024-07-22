@@ -29,9 +29,10 @@ pub mod transaction {
 
         pub fn to_base64(&self) -> String {
             let joined_coins = self.coins.join("");
-            format!("{}{}{}{}", 
+            format!("{}{}{}{}{}", 
                 general_purpose::STANDARD.encode(&self.sender).to_string(), 
                 general_purpose::STANDARD.encode(&self.receiver).to_string(),
+                joined_coins,
                 self.timestamp.to_string(),
                 general_purpose::STANDARD.encode(&self.signature.unwrap()).to_string()
             )

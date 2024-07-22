@@ -1,29 +1,34 @@
 pub mod miner {
 
-    use std::sync::{Arc, Mutex};
     use rand::{self, Rng};
     use std::fmt;
 
     use crate::chain::block::block::block::{Block};
-    use crate::chain::block::block::block;
 
     use crate::transaction::transaction::transaction::Transaction;
-    use crate::Chain;
     use crate::Wallet;
 
     #[derive(Clone)]
     pub struct ChainMeta {
         pub len: usize,
-        pub last_hash: String
+        pub last_hash: String,
+        pub difficulty: usize,
     }
 
+    pub struct UninitializedChainMetaErr;
+
+    impl fmt::Display for UninitializedChainMetaErr {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "This miner's ChainMeta has not been initialized. Consider set_chain_meta(len, last_hash, difficulty)")
+        }
+    }
 
     pub struct Miner {
         pub id: u64,
         pub name: String,
         pub wallet: Wallet,
         pub transactions: Vec<Transaction>,
-        pub chain_meta: Option<ChainMeta>
+        pub chain_meta: Option<ChainMeta>,
     }
     
     impl Miner {
@@ -38,26 +43,28 @@ pub mod miner {
             }
         }
 
-        pub fn mine(&mut self, mut block: Block) -> Block {
+        pub fn mine(&mut self, mut block: Block) -> Result<Block, UninitializedChainMetaErr> {
+            let chain_meta = self.chain_meta.as_ref().ok_or(UninitializedChainMetaErr)?;
             let mut count = 0;
             loop {
                 count += 1;
                 let mut rng = rand::thread_rng();
                 block.nonce  = rng.gen_range(0..=u64::MAX);
                 let str_digest = block.calculate_hash();
-                if str_digest.chars().next().unwrap() == '0' {
+                if str_digest.starts_with(&"0".repeat(chain_meta.difficulty)) {
                     println!("found digest: {} in attept: {}", str_digest.clone(), count);
-                    return self.create_new_block(str_digest);
+                    return Ok(self.create_new_block(str_digest));
                 } else {
                     continue;
                 }
             }
         }
 
-        pub fn set_chain_meta(&mut self, len: usize, last_hash: String) {
+        pub fn set_chain_meta(&mut self, len: usize, last_hash: String, difficulty: usize) {
             self.chain_meta = Some(ChainMeta {
                                      len,
                                      last_hash,
+                                     difficulty,
                                 })
         }
             
