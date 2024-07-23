@@ -13,7 +13,6 @@ pub mod miner {
     #[derive(Clone)]
     pub struct ChainMeta {
         pub len: usize,
-        pub last_hash: String,
         pub difficulty: usize,
     }
 
@@ -45,7 +44,8 @@ pub mod miner {
             }
         }
 
-        pub fn mine(&mut self, mut block: Block) -> Result<(Block, u64), UninitializedChainMetaErr> {
+        pub fn mine(&mut self, mut block: Block, mut transactions: Vec<Transaction>) -> Result<(Block, u64), UninitializedChainMetaErr> {
+            self.transactions = transactions;
             let chain_meta = self.chain_meta.as_ref().ok_or(UninitializedChainMetaErr)?;
             let mut count = 0;
             loop {
@@ -55,17 +55,16 @@ pub mod miner {
                 let str_digest = block.calculate_hash();
                 if str_digest.starts_with(&"0".repeat(chain_meta.difficulty)) {
                     println!("found digest: {} in attept: {}", str_digest.clone(), count);
-                    return Ok((self.create_new_block(str_digest), block.nonce));
+                    return Ok((self.create_new_block(str_digest, block.hash.clone()), block.nonce));
                 } else {
                     continue;
                 }
             }
         }
 
-        pub fn set_chain_meta(&mut self, len: usize, last_hash: String, difficulty: usize) {
+        pub fn set_chain_meta(&mut self, len: usize, difficulty: usize) {
             self.chain_meta = Some(ChainMeta {
                                      len,
-                                     last_hash,
                                      difficulty,
                                 })
         }
@@ -87,11 +86,10 @@ pub mod miner {
         //    transactions
         //}
 
-        pub fn create_new_block(&mut self, hash: String) -> Block { // will receive
+        pub fn create_new_block(&mut self, hash: String, previous_hash: String) -> Block { // will receive
                                                                                    // transactions
                                                                                    // as argument
             let index = self.chain_meta.clone().unwrap().len + 1; 
-            let previous_hash = hash.clone();
             let cap = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
             let mut capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
             let mut encoded_transactions: Vec<String> = capped_transactions.iter().map(|transaction| {

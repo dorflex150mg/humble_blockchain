@@ -1,6 +1,8 @@
 pub mod chain {
 
     use crate::chain::block::block::block::Block;
+    use crate::Transaction;
+
     use std::fmt;
     use sha2::{Digest, Sha256};
 
@@ -44,7 +46,7 @@ pub mod chain {
             chain
         }
 
-        fn check_block_data(&self, data: String, previous_hash: String, block_hash: String) -> Result<(), BlockCheckError> {
+        fn check_block_data(&self, data: String, previous_hash: &String, block_hash: &String) -> Result<(), BlockCheckError> {
             let mut hasher = Sha256::new();
             hasher.update(data);
             let digest = hasher.finalize();  
@@ -53,11 +55,11 @@ pub mod chain {
                 return Err(BlockCheckError::InvalidPrefix(self.difficulty));
             }
             let last_chain_hash = self.blocks.last().unwrap().hash.clone(); 
-            if previous_hash != last_chain_hash {
-                return Err(BlockCheckError::NotInChain {expected: previous_hash, got: last_chain_hash}); 
+            if *previous_hash != last_chain_hash {
+                return Err(BlockCheckError::NotInChain {expected: previous_hash.to_string(), got: last_chain_hash}); 
             }
-            if digest_str != block_hash {
-                Err(BlockCheckError::WrongHash {expected: digest_str, got: block_hash})
+            if digest_str != *block_hash {
+                Err(BlockCheckError::WrongHash {expected: digest_str, got: block_hash.to_string()})
             } else { 
                 println!("It's alive!!");
                 Ok(())
@@ -88,12 +90,13 @@ pub mod chain {
                                  nonce, //add mined nonce
                 );
                 let data = str_block.clone();
-                let previous_hash = last_block.previous_hash.clone();
-                let block_hash = block.previous_hash.clone();
+                let previous_hash = &block.previous_hash;
+                let block_hash = &block.hash;
                 self.check_block_data(data, previous_hash, block_hash)?;
                 self.check_difficulty(block.timestamp);
             }
             self.blocks.push(block);
+            self.len += 1;
             Ok(())
         }
 
