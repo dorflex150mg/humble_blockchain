@@ -4,7 +4,7 @@ pub mod block {
     use std::fmt;
 
 
-    pub const MAX_TRANSACTIONS: u64 = 8;
+    pub const MAX_TRANSACTIONS: usize = 8;
 
     #[derive(Default, Debug, Clone)]
     pub struct Block {
@@ -43,8 +43,8 @@ pub mod block {
 
         pub fn calculate_hash(&mut self) -> String {
             let str_block = format!("{}{}{}{}{}{}",
-                             &self.hash,
-                             &self.previous_hash,
+                             self.hash,
+                             self.previous_hash,
                              self.data,
                              self.timestamp,
                              self.index,
@@ -53,8 +53,7 @@ pub mod block {
             let mut hasher = Sha256::new();
             hasher.update(str_block);
             let digest = hasher.finalize();
-            self.hash = format!("{:x}", digest);
-            self.hash.clone()
+            format!("{:x}", digest)
         }
     }
 

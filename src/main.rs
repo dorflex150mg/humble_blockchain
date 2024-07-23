@@ -35,12 +35,12 @@ fn main() {
     let last_block = my_chain.get_last_block();
     let hash = last_block.get_hash();
     miner.set_chain_meta(my_chain.get_len(), hash, my_chain.difficulty);
-    let new_block = match miner.mine(last_block) {
-        Ok(b) => b,
+    let (new_block, nonce) = match miner.mine(last_block) {
+        Ok((b, n)) => (b, n),
         Err(e) => panic!("Block mining failed: {}", e),
     };
     println!("Block mined: {}", &new_block);
-    match my_chain.add_block(new_block) {
+    match my_chain.add_block(new_block, nonce) {
         Ok(()) => (),
         Err(e) => println!("Failed add block with error: {}", e),
     }
@@ -51,5 +51,11 @@ fn main() {
     let t1 = Transaction::new(miner.wallet.get_pub_key(), wallet1.get_pub_key(), vec![one_token]);
     let signed_t1 = miner.wallet.sign(t1);
     miner.set_transactions(vec![signed_t1]); //this is ugly and for only for testing
-    miner.mine(my_chain.get_last_block());
+    let last_block = my_chain.get_last_block();
+    let hash = last_block.get_hash();
+    miner.set_chain_meta(my_chain.get_len(), hash, my_chain.difficulty);
+    let newer_block = match miner.mine(my_chain.get_last_block()) {
+        Ok(b) => b,
+        Err(e) => panic!("Block mining failed: {}", e),
+    };
 }

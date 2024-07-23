@@ -15,7 +15,7 @@ pub mod chain {
     
     #[derive(Debug)]
     pub enum BlockCheckError {
-        InvalidPrefix,
+        InvalidPrefix(usize),
         NotInChain {expected: String, got: String},
         WrongHash {expected: String, got: String},
     }
@@ -24,7 +24,7 @@ pub mod chain {
     impl fmt::Display for BlockCheckError {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             match self {
-                BlockCheckError::InvalidPrefix => write!(f, "Invalid prefix - Not enough \"0\"'s at the beginning"),
+                BlockCheckError::InvalidPrefix(difficulty) => write!(f, "Invalid prefix - Not enough \"0\"'s at the beginning. Current difficulty: {}", difficulty),
                 BlockCheckError::NotInChain {expected, got} => write!(f, "Previous hash not in chain. Expected: {}, but got: {}", expected, got),
                 BlockCheckError::WrongHash {expected, got} => write!(f, "Wrong hash. Expected: {}, but got: {}", expected, got),
             }
@@ -33,14 +33,14 @@ pub mod chain {
 
     impl Chain {
         pub fn new(name: String) -> Self {
-            let genesis_block = Block::new(0, "0".repeat(64), "0".repeat(64), Some("0".repeat(64)));
+            let mut genesis_block = Block::new(0, "0".repeat(64), "0".repeat(64), Some("0".repeat(64)));
             let mut chain = Chain {
                 name,
                 blocks: vec![],
                 len: 0,
                 difficulty: 1,
             };
-            chain.add_block(genesis_block).unwrap();
+            chain.add_block(genesis_block, 0).unwrap();
             chain
         }
 
@@ -50,7 +50,7 @@ pub mod chain {
             let digest = hasher.finalize();  
             let digest_str = format!("{:x}", digest);
             if !digest_str.starts_with(&"0".repeat(self.difficulty)) {
-                return Err(BlockCheckError::InvalidPrefix);
+                return Err(BlockCheckError::InvalidPrefix(self.difficulty));
             }
             let last_chain_hash = self.blocks.last().unwrap().hash.clone(); 
             if previous_hash != last_chain_hash {
@@ -59,12 +59,14 @@ pub mod chain {
             if digest_str != block_hash {
                 Err(BlockCheckError::WrongHash {expected: digest_str, got: block_hash})
             } else { 
+                println!("It's alive!!");
                 Ok(())
             }
         }
 
         fn check_difficulty(&mut self, block_timestamp: u64) {
-            if block_timestamp > self.blocks.iter().last().unwrap().timestamp + interval { 
+            if block_timestamp < self.blocks.iter().last().unwrap().timestamp + interval { 
+                println!("difficulty just went up");
                 self.difficulty += 1;
             }
         }
@@ -73,23 +75,24 @@ pub mod chain {
             self.blocks.iter().last().unwrap().clone() //impossible to have a chain with 0 blocks
         }
 
-        pub fn add_block(&mut self, block: Block) -> Result<(), BlockCheckError> {
-            let str_block = format!("{}{}{}{}{}{}",
-                             &block.hash,
-                             &block.previous_hash,
-                             block.data,
-                             block.timestamp,
-                             block.index,
-                             block.nonce,
-            );
-            let data = str_block.clone();
-            let previous_hash = block.previous_hash.clone();
-            let block_hash = block.hash.clone();
-            println!("checking hash: {}", &block_hash);
+        pub fn add_block(&mut self, block: Block, nonce: u64) -> Result<(), BlockCheckError> {
             if block.index != 0 {
+                //todo: check last block instead of the new block
+                let last_block = self.blocks.iter().last().clone().unwrap();
+                let str_block = format!("{}{}{}{}{}{}",
+                                 last_block.hash,
+                                 last_block.previous_hash,
+                                 last_block.data,
+                                 last_block.timestamp,
+                                 last_block.index,
+                                 nonce, //add mined nonce
+                );
+                let data = str_block.clone();
+                let previous_hash = last_block.previous_hash.clone();
+                let block_hash = block.previous_hash.clone();
                 self.check_block_data(data, previous_hash, block_hash)?;
+                self.check_difficulty(block.timestamp);
             }
-            self.check_difficulty(block.timestamp);
             self.blocks.push(block);
             Ok(())
         }
