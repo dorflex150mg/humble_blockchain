@@ -17,6 +17,7 @@ pub mod chain {
     
     #[derive(Debug)]
     pub enum BlockCheckError {
+        WrongIndex(usize, usize),
         InvalidPrefix(usize),
         NotInChain {expected: String, got: String},
         WrongHash {expected: String, got: String},
@@ -26,6 +27,7 @@ pub mod chain {
     impl fmt::Display for BlockCheckError {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             match self {
+                BlockCheckError::WrongIndex(block_index, chain_index) => write!(f, "Wrong index. Expected index {}, but the mined block index was {}", block_index, chain_index),
                 BlockCheckError::InvalidPrefix(difficulty) => write!(f, "Invalid prefix - Not enough \"0\"'s at the beginning. Current difficulty: {}", difficulty),
                 BlockCheckError::NotInChain {expected, got} => write!(f, "Previous hash not in chain. Expected: {}, but got: {}", expected, got),
                 BlockCheckError::WrongHash {expected, got} => write!(f, "Wrong hash. Expected: {}, but got: {}", expected, got),
@@ -46,11 +48,14 @@ pub mod chain {
             chain
         }
 
-        fn check_block_data(&self, data: String, previous_hash: &String, block_hash: &String) -> Result<(), BlockCheckError> {
+        fn check_block_data(&self, data: String, previous_hash: &String, block_hash: &String, block_index: usize) -> Result<(), BlockCheckError> {
             let mut hasher = Sha256::new();
             hasher.update(data);
             let digest = hasher.finalize();  
             let digest_str = format!("{:x}", digest);
+            if block_index != self.len + 1 { 
+                return Err(BlockCheckError::WrongIndex(self.len + 1, block_index));
+            }
             if !digest_str.starts_with(&"0".repeat(self.difficulty)) {
                 return Err(BlockCheckError::InvalidPrefix(self.difficulty));
             }
@@ -92,7 +97,8 @@ pub mod chain {
                 let data = str_block.clone();
                 let previous_hash = &block.previous_hash;
                 let block_hash = &block.hash;
-                self.check_block_data(data, previous_hash, block_hash)?;
+                let block_index = block.index;
+                self.check_block_data(data, previous_hash, block_hash, block_index)?;
                 self.check_difficulty(block.timestamp);
             }
             self.blocks.push(block);
