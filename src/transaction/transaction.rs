@@ -3,8 +3,11 @@ pub mod transaction {
     use std::time::{SystemTime, UNIX_EPOCH};
     use ring::signature::Signature;
     use base64::{Engine as _, engine::general_purpose};
+    use uuid::Uuid;
+
 
     pub struct Transaction {
+        pub id: Uuid,
         pub sender: Vec<u8>,
         pub receiver: Vec<u8>,
         pub timestamp: u64,
@@ -19,6 +22,7 @@ pub mod transaction {
                          .unwrap()
                          .as_secs();
             Transaction {
+                id: Uuid::new_v4(),
                 sender,
                 receiver,
                 timestamp: now,

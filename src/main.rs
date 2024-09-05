@@ -36,7 +36,7 @@ fn main() {
     let wallet1 = Wallet::new(String::from("wallet1"));
     let last_block = my_chain.get_last_block();
     let hash = last_block.get_hash();
-    miner.set_chain_meta(my_chain.get_len(), my_chain.difficulty); // mining a simple block 
+    miner.set_chain_meta(my_chain.get_len(), my_chain.difficulty, my_chain.get_blocks()); // mining a simple block 
     let (new_block, nonce) = match miner.mine(last_block, vec![]) {
         Ok((b, n)) => (b, n),
         Err(e) => panic!("Block mining failed: {}", e),
@@ -55,7 +55,7 @@ fn main() {
     //miner.set_transactions(vec![signed_t1]); //this is ugly and for only for testing
     let last_block = my_chain.get_last_block();
     let hash = last_block.get_hash();
-    miner.set_chain_meta(my_chain.get_len(), my_chain.difficulty);
+    miner.set_chain_meta(my_chain.get_len(), my_chain.difficulty, my_chain.get_blocks());
     let (newer_block, new_nonce) = match miner.mine(my_chain.get_last_block(), vec![signed_t1]) { // mining with transactions
         Ok((b, n)) => (b, n),
         Err(e) => panic!("Block mining failed: {}", e),
@@ -79,7 +79,7 @@ fn main() {
             let hash = last_block.get_hash();
             let chain_len = chain2.lock().unwrap().get_len();
             let difficulty = chain2.lock().unwrap().difficulty;
-            miner2.set_chain_meta(chain_len, difficulty);
+            miner2.set_chain_meta(chain_len, difficulty, chain.lock().unwrap().get_blocks());
             let (newer_block, new_nonce) = match miner2.mine(last_block, vec![]) {
                 Ok((b, n)) => (b, n),
                 Err(e) => panic!("Block mining failed: {}", e),
@@ -100,7 +100,7 @@ fn main() {
         let chain_len = chain.lock().unwrap().get_len();
         let difficulty = chain.lock().unwrap().difficulty;
         println!("miner 1 setting chain meta");
-        miner.set_chain_meta(chain_len, difficulty);
+        miner.set_chain_meta(chain_len, difficulty, chain.lock().unwrap().get_blocks());
         let (newer_block, new_nonce) = match miner.mine(last_block, vec![]) {
             Ok((b, n)) => (b, n),
             Err(e) => panic!("Block mining failed: {}", e),

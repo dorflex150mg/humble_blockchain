@@ -1,6 +1,6 @@
 pub mod chain {
 
-    use crate::chain::block::block::block::Block;
+    use crate::chain::block::{self, block::block::Block};
     use crate::Transaction;
 
     use std::fmt;
@@ -112,6 +112,12 @@ pub mod chain {
 
         pub fn print_last_block(&self) {
             println!("{}", self.blocks.last().unwrap()); 
+        }
+
+        pub fn get_blocks(&self) -> Vec<Block> {
+            self.blocks.map(|| block {
+                block.clone()
+            })
         }
     }
 }

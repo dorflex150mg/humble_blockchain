@@ -1,6 +1,7 @@
 pub mod miner {
 
     use rand::{self, Rng};
+    use uuid::Uuid;
     use std::fmt;
     use std::cmp;
 
@@ -8,12 +9,24 @@ pub mod miner {
     use crate::chain::block::block::block;
 
     use crate::transaction::transaction::transaction::Transaction;
+    use crate::wallet::wallet::wallet::TransactionErr;
     use crate::Wallet;
 
     #[derive(Clone)]
     pub struct ChainMeta {
         pub len: usize,
         pub difficulty: usize,
+        pub blocks: Vec<Block>,
+    }
+
+    pub struct InvalidTransactionErr {
+        id: Uuid
+    }
+
+    impl fmt::Display for InvalidTransactionErr {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "Transaction {} check has failed.")
+        }
     }
 
     pub struct UninitializedChainMetaErr;
@@ -45,7 +58,10 @@ pub mod miner {
         }
 
         pub fn mine(&mut self, mut block: Block, mut transactions: Vec<Transaction>) -> Result<(Block, u64), UninitializedChainMetaErr> {
-            self.transactions = transactions;
+            self.transactions = match check_transactions(transactions) {
+                Ok(transactions) => transactions,
+                Err(e) => Err(InvalidTransactionErr) 
+            };
             let chain_meta = self.chain_meta.as_ref().ok_or(UninitializedChainMetaErr)?;
             let mut count = 0;
             loop {
@@ -62,16 +78,22 @@ pub mod miner {
             }
         }
 
-        pub fn set_chain_meta(&mut self, len: usize, difficulty: usize) {
+        pub fn set_chain_meta(&mut self, len: usize, difficulty: usize, blocks: Vec<Block>) {
             self.chain_meta = Some(ChainMeta {
                                      len,
                                      difficulty,
+                                     blocks,
                                 })
         }
             
 
         pub fn set_transactions(&mut self, new_transactions: Vec<Transaction>) {
             self.transactions = new_transactions;
+        }
+
+        pub fn check_transactions(&self, transactions: Vec<Transaction>) -> Result<Vec<Transactions>, InvalidTransactionErr> {
+           //TODO: check transactions
+           Ok(transactions) 
         }
 
         //pub fn get_transactions(&mut self) -> Vec<Transaction> { // in the future, miner will not own
@@ -91,7 +113,7 @@ pub mod miner {
                                                                                    // as argument
             let index = self.chain_meta.clone().unwrap().len + 1; 
             let cap = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
-            let mut capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
+            let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
             let mut encoded_transactions: Vec<String> = capped_transactions.iter().map(|transaction| {
                                                                transaction.to_base64()
                                                             }).collect();
