@@ -5,6 +5,8 @@ pub mod block {
 
 
     pub const MAX_TRANSACTIONS: usize = 8;
+    pub const TRANSACTION_OFFSET: uszie = 250;
+
 
     #[derive(Default, Debug, Clone)]
     pub struct Block {
@@ -34,6 +36,16 @@ pub mod block {
                 hash: private_hash, 
                 nonce: 0,
             }
+        }
+
+        pub fn get_transactions(&self) -> Vec<Transaction> {
+            let transactions = vec![];
+            for i in (0..self.data.len() - 1) {
+                let transaction = Transaction::from_base64(&self.data[TRANSACTION_OFFSET * i, 
+                    TRANSACTION_OFFSET * (i + 1)].clone());
+                transactions.push();
+            }
+            transactions
         }
 
         pub fn get_hash(&self) -> String {

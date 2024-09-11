@@ -115,9 +115,10 @@ pub mod chain {
         }
 
         pub fn get_blocks(&self) -> Vec<Block> {
-            self.blocks.map(|| block {
+            let collect = self.blocks.iter().map(|block| {
                 block.clone()
-            })
+            }).collect();
+            collect
         }
     }
 }

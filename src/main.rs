@@ -31,7 +31,7 @@ fn main() {
 
     let mut my_chain = Chain::new(String::from("my_chain")); // a chain being created with a genesis block
     my_chain.print_last_block();
-    let mut miner = Miner::new(1, String::from("some_miner"));
+    let mut miner = Miner::new(1, String::from("miner 1"));
     println!("miner created -> {}", miner); 
     let wallet1 = Wallet::new(String::from("wallet1"));
     let last_block = my_chain.get_last_block();
@@ -71,15 +71,16 @@ fn main() {
     let other_chain_arc = chain_arc.clone();
                                                                    // TODO: chain should
                                                                    // be clonable
-    let mut miner2 = Miner::new(2, String::from("another_miner")); // two miners 
+    let mut miner2 = Miner::new(2, String::from("miner 2")); // two miners 
     let chain2 = chain_arc.clone();
     let handle = thread::spawn(move || {
         for i in 0..100 {
+            println!("miner 2 mining\n\n\n\n");
             let last_block = chain2.lock().unwrap().get_last_block();
             let hash = last_block.get_hash();
             let chain_len = chain2.lock().unwrap().get_len();
             let difficulty = chain2.lock().unwrap().difficulty;
-            miner2.set_chain_meta(chain_len, difficulty, chain.lock().unwrap().get_blocks());
+            miner2.set_chain_meta(chain_len, difficulty, chain2.lock().unwrap().get_blocks());
             let (newer_block, new_nonce) = match miner2.mine(last_block, vec![]) {
                 Ok((b, n)) => (b, n),
                 Err(e) => panic!("Block mining failed: {}", e),
@@ -111,5 +112,4 @@ fn main() {
             Err(e) => println!("Failed add block with error: {}", e),
         };
     }
-    
 }

@@ -1,6 +1,7 @@
 pub mod miner {
 
     use rand::{self, Rng};
+    use thiserror::Error;
     use uuid::Uuid;
     use std::fmt;
     use std::cmp;
@@ -19,16 +20,25 @@ pub mod miner {
         pub blocks: Vec<Block>,
     }
 
-    pub struct InvalidTransactionErr {
-        id: Uuid
+    #[derive(Error, Debug, derive_more::From, derive_more::Display)]    
+    pub enum MiningError {
+        InvalidTransactionErr(InvalidTransactionErr),
+        UninitializedChainMetaErr(UninitializedChainMetaErr),
+
+    }
+
+    #[derive(Error, Debug)]    
+    pub enum InvalidTransactionErr {
+        IncompleteChain,
     }
 
     impl fmt::Display for InvalidTransactionErr {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "Transaction {} check has failed.")
+            write!(f, "Transaction check has failed.")
         }
     }
 
+    #[derive(Error, Debug)]    
     pub struct UninitializedChainMetaErr;
 
     impl fmt::Display for UninitializedChainMetaErr {
@@ -57,12 +67,11 @@ pub mod miner {
             }
         }
 
-        pub fn mine(&mut self, mut block: Block, mut transactions: Vec<Transaction>) -> Result<(Block, u64), UninitializedChainMetaErr> {
-            self.transactions = match check_transactions(transactions) {
-                Ok(transactions) => transactions,
-                Err(e) => Err(InvalidTransactionErr) 
-            };
-            let chain_meta = self.chain_meta.as_ref().ok_or(UninitializedChainMetaErr)?;
+        pub fn mine(&mut self, mut block: Block, mut transactions: Vec<Transaction>) -> Result<(Block, u64), MiningError> {
+            self.transactions = self.check_transactions(transactions)?;
+            
+            self.transactions = transactions;
+            let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))?;
             let mut count = 0;
             loop {
                 count += 1;
@@ -85,28 +94,48 @@ pub mod miner {
                                      blocks,
                                 })
         }
-            
 
         pub fn set_transactions(&mut self, new_transactions: Vec<Transaction>) {
             self.transactions = new_transactions;
         }
 
-        pub fn check_transactions(&self, transactions: Vec<Transaction>) -> Result<Vec<Transactions>, InvalidTransactionErr> {
-           //TODO: check transactions
-           Ok(transactions) 
+
+        pub fn check_transaction(&self, transaction: Transaction, blocks: Vec<Blocks>) -> Result<InvalidTransactionErr> {
+            let coins = transaction.coins;
+            for coin in coins {
+                for block in blocks.iter().rev().collect()  {
+                    for t in block.get_transactions() {
+                        if t.coins.contains(coin) {
+                            if t.receiver != t.owner {
+                                return Err(InvalidTransactionErr);
+                            }
+                        }
+                    }            
+                }
+            }
+            Ok(())
         }
 
-        //pub fn get_transactions(&mut self) -> Vec<Transaction> { // in the future, miner will not own
-        //                                                     // transactions, hence this method
-        //    let mut transactions: Vec<Transaction> = vec![];
-        //    for i in 0..block::MAX_TRANSACTIONS {
-        //        match self.transactions.iter().next().clone() {
-        //            Some(t) => transactions.push(*t),
-        //            None => break,
-        //        }
-        //    }
-        //    transactions
-        //}
+        pub fn check_transactions(&self, transactions: Vec<Transaction>) -> Result<Vec<Transaction>, InvalidTransactionErr> {
+            transactions.iter().map(|transaction| {
+                self.check_transaction(transaction, self.chain_meta.blocks)?
+            }).collect();
+
+            //TODO: check transactions
+            Ok(transactions) 
+        }
+
+        pub fn get_transactions(&mut self) -> Vec<Transaction> { // in the future, miner will not own
+                                                             // transactions, hence this method
+            let mut transactions: Vec<Transaction> = vec![];
+            for i in 0..block::MAX_TRANSACTIONS {
+                match self.transactions.iter().next().clone() {
+                    Some(t) => transactions.push(*t),
+                    None => break,
+                }
+            }
+            transactions
+        }
 
         pub fn create_new_block(&mut self, hash: String, previous_hash: String) -> Block { // will receive
                                                                                    // transactions

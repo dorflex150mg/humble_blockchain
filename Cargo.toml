@@ -10,5 +10,6 @@ ring = "0.17.8"
 rand = "0.8.5"
 chrono = "0.4.38"
 sha2 = "0.10.6"
-uuid = [version = "1.10.0", features = "v4"]
+uuid = {version = "1.10.0", features = ["v4"]}
+derive_more = "^0.99"
 

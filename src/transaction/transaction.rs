@@ -41,6 +41,16 @@ pub mod transaction {
                 general_purpose::STANDARD.encode(&self.signature.unwrap()).to_string()
             )
         }
+
+        pub fn from_base64(raw: String) -> Result<Self> {
+            Ok(Transaction {
+                sender: general_purpose::STANDARD.decode(&raw[0, 63])?,             // 64     
+                receiver: general_purpose::STADARD.decode(&raw[64, 127])?,          // 64 
+                coins: vec![&raw[128, 191]],                                        // 64 
+                timestamp: &raw[192, 195].to_string().parse::<u64>()?,              // 4 
+                signature: Ok(general_purspose::STANDARD.decode(&raw[196, 259])?),  // 64
+            }
+        }
     }
 
     impl fmt::Display for Transaction {
