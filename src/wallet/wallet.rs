@@ -3,38 +3,43 @@ pub mod wallet {
     use crate::transaction::transaction::transaction::Transaction;
  
     use ring::rand::{SystemRandom};
-    use ring::signature::{Ed25519KeyPair, KeyPair};
+    use ring::signature::{Ed25519KeyPair, KeyPair, EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
     use std::fmt;
 
     pub struct Wallet {
         pub name: String,
-        pub key_pair: Ed25519KeyPair,
+        //pub key_pair: Ed25519KeyPair,
+        pub key_pair: EcdsaKeyPair,
         pub coins: Vec<String>,
+        rng: SystemRandom,
     }
 
     pub enum TransactionErr {
         InsuficientBalance,
     }
 
-    fn generate_key_pair() -> Ed25519KeyPair {
+    //fn generate_key_pair() -> Ed25519KeyPair {
+    fn generate_key_pair() -> (EcdsaKeyPair, SystemRandom) {
         let rng = SystemRandom::new();
-        let pkcs8_bytes = Ed25519KeyPair::generate_pkcs8(&rng).unwrap(); // pkcs#8 key syntax
-                                                                         // with Edwards curve
-                                                                         // algorithm
-        let key_pair = Ed25519KeyPair::from_pkcs8(pkcs8_bytes.as_ref())
-                                        .unwrap();  //key struct from bytes
+        let pkcs8_bytes = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).unwrap(); // pkcs#8 key syntax
+        // with Edwards curve
+        // algorithm
+        let key_pair = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, pkcs8_bytes.as_ref(), &rng)
+        .unwrap();  //key struct from bytes
+        
         println!("printing the key pair: {:#?}", key_pair);
-        key_pair
+        (key_pair, rng)
     }
 
 
     impl Wallet {
         pub fn new(name: String) -> Self{
-            let key_pair = generate_key_pair();
+            let (key_pair, rng) = generate_key_pair();
             Wallet {
                 name,
                 coins: vec![],
                 key_pair,
+                rng,
             }
         }
 
@@ -74,7 +79,7 @@ pub mod wallet {
                 vec.append(&mut i);
             }
             let bytes = &vec; 
-            transaction.signature = Some(self.key_pair.sign(bytes));
+            transaction.signature = Some(self.key_pair.sign(&self.rng, bytes).unwrap().as_ref().to_vec());
             transaction
         }
             
@@ -104,7 +109,5 @@ pub mod wallet {
         }
     }
 }
-
-    
 
     

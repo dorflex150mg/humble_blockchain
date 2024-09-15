@@ -3,9 +3,11 @@ pub mod block {
     use sha2::{Digest, Sha256};
     use std::fmt;
 
+    use crate::Transaction;
+
 
     pub const MAX_TRANSACTIONS: usize = 8;
-    pub const TRANSACTION_OFFSET: uszie = 250;
+    pub const TRANSACTION_OFFSET: usize = 250;
 
 
     #[derive(Default, Debug, Clone)]
@@ -39,11 +41,12 @@ pub mod block {
         }
 
         pub fn get_transactions(&self) -> Vec<Transaction> {
-            let transactions = vec![];
+            let mut transactions = vec![];
             for i in (0..self.data.len() - 1) {
-                let transaction = Transaction::from_base64(&self.data[TRANSACTION_OFFSET * i, 
-                    TRANSACTION_OFFSET * (i + 1)].clone());
-                transactions.push();
+                let data_slice_start = TRANSACTION_OFFSET * i; 
+                let data_slice_end = TRANSACTION_OFFSET * (i + 1);
+                let transaction = Transaction::from_base64((&self.data[data_slice_start .. data_slice_end]).to_string()).unwrap();
+                transactions.push(transaction);
             }
             transactions
         }

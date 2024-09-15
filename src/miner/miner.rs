@@ -70,7 +70,7 @@ pub mod miner {
         pub fn mine(&mut self, mut block: Block, mut transactions: Vec<Transaction>) -> Result<(Block, u64), MiningError> {
             self.transactions = self.check_transactions(transactions)?;
             
-            self.transactions = transactions;
+            //self.transactions = transactions;
             let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))?;
             let mut count = 0;
             loop {
@@ -100,14 +100,14 @@ pub mod miner {
         }
 
 
-        pub fn check_transaction(&self, transaction: Transaction, blocks: Vec<Blocks>) -> Result<InvalidTransactionErr> {
-            let coins = transaction.coins;
+        pub fn check_transaction(&self, transaction: &Transaction, blocks: &Vec<Block>) -> Result<(), InvalidTransactionErr> {
+            let coins = &transaction.coins;
             for coin in coins {
-                for block in blocks.iter().rev().collect()  {
+                for block in blocks.iter().rev().collect::<Vec<&Block>>() {
                     for t in block.get_transactions() {
-                        if t.coins.contains(coin) {
-                            if t.receiver != t.owner {
-                                return Err(InvalidTransactionErr);
+                        if t.coins.contains(&coin) {
+                            if t.receiver != transaction.sender {
+                                return Err(InvalidTransactionErr::IncompleteChain);
                             }
                         }
                     }            
@@ -117,25 +117,26 @@ pub mod miner {
         }
 
         pub fn check_transactions(&self, transactions: Vec<Transaction>) -> Result<Vec<Transaction>, InvalidTransactionErr> {
+            let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr)).unwrap();
             transactions.iter().map(|transaction| {
-                self.check_transaction(transaction, self.chain_meta.blocks)?
-            }).collect();
+                self.check_transaction(transaction, &chain_meta.blocks)
+            }).collect::<Result<Vec<_>, _>>()?;
 
             //TODO: check transactions
             Ok(transactions) 
         }
 
-        pub fn get_transactions(&mut self) -> Vec<Transaction> { // in the future, miner will not own
-                                                             // transactions, hence this method
-            let mut transactions: Vec<Transaction> = vec![];
-            for i in 0..block::MAX_TRANSACTIONS {
-                match self.transactions.iter().next().clone() {
-                    Some(t) => transactions.push(*t),
-                    None => break,
-                }
-            }
-            transactions
-        }
+        //pub fn get_transactions(&mut self) -> Vec<Transaction> { // in the future, miner will not own
+        //                                                     // transactions, hence this method
+        //    let mut transactions: Vec<Transaction> = vec![];
+        //    for i in 0..block::MAX_TRANSACTIONS {
+        //        match self.transactions.iter().next().clone() {
+        //            Some(t) => transactions.push(*t),
+        //            None => break,
+        //        }
+        //    }
+        //    transactions
+        //}
 
         pub fn create_new_block(&mut self, hash: String, previous_hash: String) -> Block { // will receive
                                                                                    // transactions
