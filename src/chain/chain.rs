@@ -37,7 +37,8 @@ pub mod chain {
 
     impl Chain {
         pub fn new(name: String) -> Self {
-            let mut genesis_block = Block::new(0, "0".repeat(64), "0".repeat(64), Some("0".repeat(64)));
+            let mut genesis_block = Block::new(0, "0".repeat(64), String::from(""), Some("0".repeat(64)));
+            println!("genesis block data: {:?}", genesis_block.data);
             let mut chain = Chain {
                 name,
                 blocks: vec![],

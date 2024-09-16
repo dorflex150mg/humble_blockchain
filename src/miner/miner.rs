@@ -8,10 +8,11 @@ pub mod miner {
 
     use crate::chain::block::block::block::{Block};
     use crate::chain::block::block::block;
-
     use crate::transaction::transaction::transaction::Transaction;
     use crate::wallet::wallet::wallet::TransactionErr;
     use crate::Wallet;
+
+    pub const ZERO_WALLET_PK: [u8; 64]  = [0u8; 64];
 
     #[derive(Clone)]
     pub struct ChainMeta {
@@ -30,11 +31,15 @@ pub mod miner {
     #[derive(Error, Debug)]    
     pub enum InvalidTransactionErr {
         IncompleteChain,
+        UnknownCoin,
     }
 
     impl fmt::Display for InvalidTransactionErr {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "Transaction check has failed.")
+            match self {
+                InvalidTransactionErr::IncompleteChain => write!(f, "The last owner of this coin is not this transaction's spender."),
+                InvalidTransactionErr::UnknownCoin => write!(f, "The coin spent in this transaction is not valid."),
+            }
         }
     }
 
@@ -69,7 +74,6 @@ pub mod miner {
 
         pub fn mine(&mut self, mut block: Block, mut transactions: Vec<Transaction>) -> Result<(Block, u64), MiningError> {
             self.transactions = self.check_transactions(transactions)?;
-            
             //self.transactions = transactions;
             let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))?;
             let mut count = 0;
@@ -80,6 +84,12 @@ pub mod miner {
                 let str_digest = block.calculate_hash();
                 if str_digest.starts_with(&"0".repeat(chain_meta.difficulty)) {
                     println!("found digest: {} in attept: {}", str_digest.clone(), count);
+                    let prize_transaction = Transaction::new(
+                        ZERO_WALLET_PK.to_vec(), 
+                        self.wallet.get_pub_key(), 
+                        vec![str_digest.clone()]);
+                    let signed_prize = self.wallet.sign(prize_transaction);
+                    self.transactions.push(signed_prize);
                     return Ok((self.create_new_block(str_digest, block.hash.clone()), block.nonce));
                 } else {
                     continue;
@@ -100,17 +110,28 @@ pub mod miner {
         }
 
 
-        pub fn check_transaction(&self, transaction: &Transaction, blocks: &Vec<Block>) -> Result<(), InvalidTransactionErr> {
+        pub fn check_transaction(&self, transaction: &Transaction, blocks: &Vec<Block>) -> 
+                Result<(), InvalidTransactionErr> {
             let coins = &transaction.coins;
-            for coin in coins {
-                for block in blocks.iter().rev().collect::<Vec<&Block>>() {
-                    for t in block.get_transactions() {
-                        if t.coins.contains(&coin) {
-                            if t.receiver != transaction.sender {
-                                return Err(InvalidTransactionErr::IncompleteChain);
+            for coin in coins { //verify each coin is valid:
+                let mut coin_found = false;
+                for block in blocks.iter().rev().collect::<Vec<&Block>>() { //check each block
+                    for t in block.get_transactions() { //check each transaction in the block
+                        println!("coin in transaction: {}", t.coins[0]);
+                        if t.coins[0] == *coin { 
+                            coin_found = true; //if the coin gets found, check if the spender is
+                                               //the last owner of the coin
+                            if t.receiver != transaction.sender { // fail if sender doesnt own the
+                                                                  // coin
+                                return Err(InvalidTransactionErr::IncompleteChain); 
                             }
+                            break;
                         }
                     }            
+                }
+                if !coin_found { // if the coin is not in any blocks, fail
+                    println!("coin: {}", &coin);
+                    return Err(InvalidTransactionErr::UnknownCoin); 
                 }
             }
             Ok(())
@@ -118,11 +139,10 @@ pub mod miner {
 
         pub fn check_transactions(&self, transactions: Vec<Transaction>) -> Result<Vec<Transaction>, InvalidTransactionErr> {
             let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr)).unwrap();
-            transactions.iter().map(|transaction| {
+            transactions.iter().map(|transaction| { //TODO: If a transaction fail, carry on with
+                                                    //the others
                 self.check_transaction(transaction, &chain_meta.blocks)
             }).collect::<Result<Vec<_>, _>>()?;
-
-            //TODO: check transactions
             Ok(transactions) 
         }
 
@@ -145,9 +165,10 @@ pub mod miner {
             let cap = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
             let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
             let mut encoded_transactions: Vec<String> = capped_transactions.iter().map(|transaction| {
+                                                               println!("transaction in new block: {}", &transaction);
                                                                transaction.to_base64()
                                                             }).collect();
-            encoded_transactions.push(hash.clone());
+            //encoded_transactions.push(hash.clone());
             let data = encoded_transactions.join("");
             self.wallet.add_coin(hash.clone());
             Block::new(index, previous_hash, data, Some(hash)) 

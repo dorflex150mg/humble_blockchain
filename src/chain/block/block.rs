@@ -8,6 +8,9 @@ pub mod block {
 
     pub const MAX_TRANSACTIONS: usize = 8;
     pub const TRANSACTION_OFFSET: usize = 250;
+    pub const N_TRANSACTION_PARAMS: usize = 6;
+
+    pub const FIELD_END: char = ';';
 
 
     #[derive(Default, Debug, Clone)]
@@ -40,21 +43,37 @@ pub mod block {
             }
         }
 
-        pub fn get_transactions(&self) -> Vec<Transaction> {
+        pub fn get_transactions(&self) -> Vec<Transaction> { //TODO: There needs to be a separator
+                                                             //between transactions in data
             let mut transactions = vec![];
-            for i in (0..self.data.len() - 1) {
-                let data_slice_start = TRANSACTION_OFFSET * i; 
-                let data_slice_end = TRANSACTION_OFFSET * (i + 1);
-                let transaction = Transaction::from_base64((&self.data[data_slice_start .. data_slice_end]).to_string()).unwrap();
-                transactions.push(transaction);
+            let mut cursor = self.data.chars();
+            let mut cur_char = cursor.next();
+            let mut field = 1;
+            let mut transaction_params = vec![];
+            while cur_char != None {
+                let mut cur_field = String::from("");
+                while cur_char != Some(FIELD_END) {
+                    cur_field.push(cur_char.unwrap());
+                    cur_char = cursor.next();
+                }
+                println!("Finished a field - {}", field);
+                field += 1;
+                transaction_params.push(cur_field);
+                cur_char = cursor.next();
+                if field == N_TRANSACTION_PARAMS {
+                    let transaction = Transaction::from_base64(transaction_params).unwrap();
+                    transactions.push(transaction);
+                    field = 0;
+                    transaction_params = vec![];
+                }
             }
+            println!("get transactions - n transactions: {}", transactions.len());
             transactions
         }
 
         pub fn get_hash(&self) -> String {
             self.hash.clone()
         }
-
 
         pub fn calculate_hash(&mut self) -> String {
             let str_block = format!("{}{}{}{}{}{}",

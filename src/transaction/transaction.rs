@@ -45,8 +45,15 @@ pub mod transaction {
 
         pub fn to_base64(&self) -> String {
             let joined_coins = self.coins.join("");
+            println!("transaction parts: {} {} {} {} {}", 
+                general_purpose::STANDARD.encode(&self.sender).to_string(), 
+                general_purpose::STANDARD.encode(&self.receiver).to_string(),
+                &joined_coins,
+                self.timestamp.to_string(),
+                general_purpose::STANDARD.encode(&self.signature.as_ref().unwrap().as_slice()).to_string()
+            );
 
-            format!("{}{}{}{}{}", 
+            format!("{};{};{};{};{};", 
                 general_purpose::STANDARD.encode(&self.sender).to_string(), 
                 general_purpose::STANDARD.encode(&self.receiver).to_string(),
                 joined_coins,
@@ -55,21 +62,22 @@ pub mod transaction {
             )
         }
 
-        pub fn from_base64(raw: String) -> Result<Self, TransactionFromBase64Error> {
+        pub fn from_base64(params: Vec<String>) -> Result<Self, TransactionFromBase64Error> {
+            println!("from base 64 - Sender raw: {:?}", params[1]);         // 64     
             Ok(Transaction {
-                sender: general_purpose::STANDARD.decode(&raw[0..63])?,             // 64     
-                receiver: general_purpose::STANDARD.decode(&raw[64..127])?,          // 64 
-                coins: vec![(&raw[128..191]).to_string()],                                        // 64 
-                timestamp: (&raw[192..195]).to_string().parse::<u64>()?,              // 4 
-                signature: Some((general_purpose::STANDARD.decode(&raw[196..259])?)),  // 64
+                sender: general_purpose::STANDARD.decode(params[0].as_str()).unwrap(), 
+                receiver: general_purpose::STANDARD.decode(params[1].as_str())?,
+                coins: vec![params[2].clone()],
+                timestamp: params[3].parse::<u64>()?,
+                signature: Some((general_purpose::STANDARD.decode(params[4].as_str())?)),
             })
         }
     }
 
     impl fmt::Display for Transaction {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "timestamp: {}", 
-                    self.timestamp)
+            write!(f, "timestamp: {}, sender: {:?}, receiver: {:?}, coins: {}", 
+                    self.timestamp, self.sender, self.receiver, self.coins.join(" "))
         }
    }
 
