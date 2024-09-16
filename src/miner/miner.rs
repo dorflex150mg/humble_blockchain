@@ -1,13 +1,18 @@
 pub mod miner {
 
-    use rand::{self, Rng};
-    use thiserror::Error;
-    use uuid::Uuid;
     use std::fmt;
     use std::cmp;
+    use rand::{self, Rng};
+    
+    use thiserror::Error;
+    use uuid::Uuid;
 
-    use crate::chain::block::block::block::{Block};
-    use crate::chain::block::block::block;
+    use crate::chain::block::block::block::{
+        self, 
+        Block, 
+        InvalidTransactionErr
+    };
+
     use crate::transaction::transaction::transaction::Transaction;
     use crate::wallet::wallet::wallet::TransactionErr;
     use crate::Wallet;
@@ -26,21 +31,6 @@ pub mod miner {
         InvalidTransactionErr(InvalidTransactionErr),
         UninitializedChainMetaErr(UninitializedChainMetaErr),
 
-    }
-
-    #[derive(Error, Debug)]    
-    pub enum InvalidTransactionErr {
-        IncompleteChain,
-        UnknownCoin,
-    }
-
-    impl fmt::Display for InvalidTransactionErr {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            match self {
-                InvalidTransactionErr::IncompleteChain => write!(f, "The last owner of this coin is not this transaction's spender."),
-                InvalidTransactionErr::UnknownCoin => write!(f, "The coin spent in this transaction is not valid."),
-            }
-        }
     }
 
     #[derive(Error, Debug)]    
@@ -74,7 +64,6 @@ pub mod miner {
 
         pub fn mine(&mut self, mut block: Block, mut transactions: Vec<Transaction>) -> Result<(Block, u64), MiningError> {
             self.transactions = self.check_transactions(transactions)?;
-            //self.transactions = transactions;
             let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))?;
             let mut count = 0;
             loop {
@@ -110,53 +99,41 @@ pub mod miner {
         }
 
 
-        pub fn check_transaction(&self, transaction: &Transaction, blocks: &Vec<Block>) -> 
-                Result<(), InvalidTransactionErr> {
-            let coins = &transaction.coins;
-            for coin in coins { //verify each coin is valid:
-                let mut coin_found = false;
-                for block in blocks.iter().rev().collect::<Vec<&Block>>() { //check each block
-                    for t in block.get_transactions() { //check each transaction in the block
-                        println!("coin in transaction: {}", t.coins[0]);
-                        if t.coins[0] == *coin { 
-                            coin_found = true; //if the coin gets found, check if the spender is
-                                               //the last owner of the coin
-                            if t.receiver != transaction.sender { // fail if sender doesnt own the
-                                                                  // coin
-                                return Err(InvalidTransactionErr::IncompleteChain); 
-                            }
-                            break;
-                        }
-                    }            
-                }
-                if !coin_found { // if the coin is not in any blocks, fail
-                    println!("coin: {}", &coin);
-                    return Err(InvalidTransactionErr::UnknownCoin); 
-                }
-            }
-            Ok(())
-        }
+        //pub fn check_transaction(&self, transaction: &Transaction, blocks: &Vec<Block>) -> 
+        //        Result<(), InvalidTransactionErr> {
+        //    let coins = &transaction.coins;
+        //    for coin in coins { //verify each coin is valid:
+        //        let mut coin_found = false;
+        //        for block in blocks.iter().rev().collect::<Vec<&Block>>() { //check each block
+        //            for t in block.get_transactions() { //check each transaction in the block
+        //                println!("coin in transaction: {}", t.coins[0]);
+        //                if t.coins[0] == *coin { 
+        //                    coin_found = true; //if the coin gets found, check if the spender is
+        //                                       //the last owner of the coin
+        //                    if t.receiver != transaction.sender { // fail if sender doesnt own the
+        //                                                          // coin
+        //                        return Err(InvalidTransactionErr::IncompleteChain); 
+        //                    }
+        //                    break;
+        //                }
+        //            }            
+        //        }
+        //        if !coin_found { // if the coin is not in any blocks, fail
+        //            println!("coin: {}", &coin);
+        //            return Err(InvalidTransactionErr::UnknownCoin); 
+        //        }
+        //    }
+        //    Ok(())
+        //}
 
         pub fn check_transactions(&self, transactions: Vec<Transaction>) -> Result<Vec<Transaction>, InvalidTransactionErr> {
             let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr)).unwrap();
             transactions.iter().map(|transaction| { //TODO: If a transaction fail, carry on with
                                                     //the others
-                self.check_transaction(transaction, &chain_meta.blocks)
+                block::check_transaction(transaction, &chain_meta.blocks)
             }).collect::<Result<Vec<_>, _>>()?;
             Ok(transactions) 
         }
-
-        //pub fn get_transactions(&mut self) -> Vec<Transaction> { // in the future, miner will not own
-        //                                                     // transactions, hence this method
-        //    let mut transactions: Vec<Transaction> = vec![];
-        //    for i in 0..block::MAX_TRANSACTIONS {
-        //        match self.transactions.iter().next().clone() {
-        //            Some(t) => transactions.push(*t),
-        //            None => break,
-        //        }
-        //    }
-        //    transactions
-        //}
 
         pub fn create_new_block(&mut self, hash: String, previous_hash: String) -> Block { // will receive
                                                                                    // transactions

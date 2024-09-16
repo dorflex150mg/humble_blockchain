@@ -1,17 +1,17 @@
 pub mod block {
     use std::time::{SystemTime, UNIX_EPOCH};
-    use sha2::{Digest, Sha256};
     use std::fmt;
 
-    use crate::Transaction;
+    use sha2::{Digest, Sha256};
+    use thiserror::Error;
 
+    use crate::Transaction;
 
     pub const MAX_TRANSACTIONS: usize = 8;
     pub const TRANSACTION_OFFSET: usize = 250;
     pub const N_TRANSACTION_PARAMS: usize = 6;
 
     pub const FIELD_END: char = ';';
-
 
     #[derive(Default, Debug, Clone)]
     pub struct Block {
@@ -21,6 +21,48 @@ pub mod block {
         pub data: String,
         pub timestamp: u64,
         pub nonce: u64,
+    }
+
+    #[derive(Error, Debug)]    
+    pub enum InvalidTransactionErr {
+        IncompleteChain,
+        UnknownCoin,
+    }
+    
+    impl fmt::Display for InvalidTransactionErr {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match self {
+                InvalidTransactionErr::IncompleteChain => write!(f, "The last owner of this coin is not this transaction's spender."),
+                InvalidTransactionErr::UnknownCoin => write!(f, "The coin spent in this transaction is not valid."),
+            }
+        }
+    }
+
+    pub fn check_transaction(transaction: &Transaction, blocks: &Vec<Block>) -> 
+            Result<(), InvalidTransactionErr> {
+        let coins = &transaction.coins;
+        for coin in coins { //verify each coin is valid:
+            let mut coin_found = false;
+            for block in blocks.iter().rev().collect::<Vec<&Block>>() { //check each block
+                for t in block.get_transactions() { //check each transaction in the block
+                    println!("coin in transaction: {}", t.coins[0]);
+                    if t.coins[0] == *coin { 
+                        coin_found = true; //if the coin gets found, check if the spender is
+                                           //the last owner of the coin
+                        if t.receiver != transaction.sender { // fail if sender doesnt own the
+                                                              // coin
+                            return Err(InvalidTransactionErr::IncompleteChain); 
+                        }
+                        break;
+                    }
+                }            
+            }
+            if !coin_found { // if the coin is not in any blocks, fail
+                println!("coin: {}", &coin);
+                return Err(InvalidTransactionErr::UnknownCoin); 
+            }
+        }
+        Ok(())
     }
 
     impl Block {
