@@ -85,31 +85,20 @@ pub mod block {
             }
         }
 
-        pub fn get_transactions(&self) -> Vec<Transaction> { //TODO: There needs to be a separator
-                                                             //between transactions in data
+        pub fn get_transactions(&self) -> Vec<Transaction> { 
             let mut transactions = vec![];
-            let mut cursor = self.data.chars();
-            let mut cur_char = cursor.next();
-            let mut field = 1;
-            let mut transaction_params = vec![];
-            while cur_char != None {
-                let mut cur_field = String::from("");
-                while cur_char != Some(FIELD_END) {
-                    cur_field.push(cur_char.unwrap());
-                    cur_char = cursor.next();
+            let mut separator_counter = 1;
+            let mut last_tx = 0;
+            for i in 0..self.data.len() {
+                if self.data[i..].chars().next().unwrap() == FIELD_END { //this is the 'byte' way of indexing
+                    separator_counter += 1;
                 }
-                println!("Finished a field - {}", field);
-                field += 1;
-                transaction_params.push(cur_field);
-                cur_char = cursor.next();
-                if field == N_TRANSACTION_PARAMS {
-                    let transaction = Transaction::from_base64(transaction_params).unwrap();
-                    transactions.push(transaction);
-                    field = 0;
-                    transaction_params = vec![];
+                if separator_counter % N_TRANSACTION_PARAMS == 0 {
+                    let str_transaction = String::from(&self.data[last_tx..i + 1]);
+                    transactions.push(Transaction::try_from(str_transaction).unwrap());
+                    last_tx = i + 1;
                 }
             }
-            println!("get transactions - n transactions: {}", transactions.len());
             transactions
         }
 

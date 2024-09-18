@@ -8,6 +8,7 @@ pub mod chain {
 
     const interval: u64 = 60; //difficulty increases if mining a block takes more than 1 minute
     
+    #[derive(Clone)]
     pub struct Chain {
         name: String,
         blocks: Vec<Block>,
@@ -85,7 +86,6 @@ pub mod chain {
 
         pub fn add_block(&mut self, block: Block, nonce: u64) -> Result<(), BlockCheckError> {
             if block.index != 0 {
-                //todo: check last block instead of the new block
                 let last_block = self.blocks.iter().last().clone().unwrap();
                 let str_block = format!("{}{}{}{}{}{}",
                                  last_block.hash,

@@ -11,20 +11,22 @@ pub mod transaction {
     use uuid::Uuid;
 
 
+    pub const FIELD_END: char = ';';
+
+
     #[derive(Error, Debug, derive_more::From, derive_more::Display)]    
     pub enum TransactionFromBase64Error {
         Base64Error(base64::DecodeError),
         ParseError(ParseIntError),
     }
 
+    #[derive(Clone)]
     pub struct Transaction {
-        //pub id: Uuid,
         pub sender: Vec<u8>,
         pub receiver: Vec<u8>,
         pub timestamp: u64,
         pub coins: Vec<String>,
         pub signature: Option<Vec<u8>>,
-        //pub signature: &[u8],
     }
 
     impl Transaction {
@@ -34,7 +36,6 @@ pub mod transaction {
                          .unwrap()
                          .as_secs();
             Transaction {
-                //id: Uuid::new_v4(),
                 sender,
                 receiver,
                 timestamp: now,
@@ -45,14 +46,6 @@ pub mod transaction {
 
         pub fn to_base64(&self) -> String {
             let joined_coins = self.coins.join("");
-            println!("transaction parts: {} {} {} {} {}", 
-                general_purpose::STANDARD.encode(&self.sender).to_string(), 
-                general_purpose::STANDARD.encode(&self.receiver).to_string(),
-                &joined_coins,
-                self.timestamp.to_string(),
-                general_purpose::STANDARD.encode(&self.signature.as_ref().unwrap().as_slice()).to_string()
-            );
-
             format!("{};{};{};{};{};", 
                 general_purpose::STANDARD.encode(&self.sender).to_string(), 
                 general_purpose::STANDARD.encode(&self.receiver).to_string(),
@@ -61,16 +54,32 @@ pub mod transaction {
                 general_purpose::STANDARD.encode(&self.signature.as_ref().unwrap().as_slice()).to_string()
             )
         }
+    }
 
-        pub fn from_base64(params: Vec<String>) -> Result<Self, TransactionFromBase64Error> {
-            println!("from base 64 - Sender raw: {:?}", params[1]);         // 64     
+    impl TryFrom<String> for Transaction {
+        type Error = TransactionFromBase64Error;
+        fn try_from(string: String) -> Result<Self, Self::Error> {
+            let mut params: Vec<&str> = string.as_str().split(';').collect();
             Ok(Transaction {
-                sender: general_purpose::STANDARD.decode(params[0].as_str()).unwrap(), 
-                receiver: general_purpose::STANDARD.decode(params[1].as_str())?,
-                coins: vec![params[2].clone()],
+                sender: general_purpose::STANDARD.decode(params[0])?, 
+                receiver: general_purpose::STANDARD.decode(params[1])?,
+                coins: vec![params[2].to_string().clone()],
                 timestamp: params[3].parse::<u64>()?,
-                signature: Some((general_purpose::STANDARD.decode(params[4].as_str())?)),
+                signature: Some((general_purpose::STANDARD.decode(params[4])?)),
             })
+        }
+    }
+
+    impl Into<String> for Transaction {
+        fn into(self) -> String {
+            let joined_coins = self.coins.join("");
+            format!("{};{};{};{};{};", 
+                general_purpose::STANDARD.encode(&self.sender).to_string(), 
+                general_purpose::STANDARD.encode(&self.receiver).to_string(),
+                joined_coins,
+                self.timestamp.to_string(),
+                general_purpose::STANDARD.encode(&self.signature.as_ref().unwrap().as_slice()).to_string()
+            )
         }
     }
 

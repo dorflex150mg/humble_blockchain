@@ -18,7 +18,6 @@ pub mod wallet {
         InsuficientBalance,
     }
 
-    //fn generate_key_pair() -> Ed25519KeyPair {
     fn generate_key_pair() -> (EcdsaKeyPair, SystemRandom) {
         let rng = SystemRandom::new();
         let pkcs8_bytes = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).unwrap(); // pkcs#8 key syntax

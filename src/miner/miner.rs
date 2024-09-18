@@ -99,33 +99,6 @@ pub mod miner {
         }
 
 
-        //pub fn check_transaction(&self, transaction: &Transaction, blocks: &Vec<Block>) -> 
-        //        Result<(), InvalidTransactionErr> {
-        //    let coins = &transaction.coins;
-        //    for coin in coins { //verify each coin is valid:
-        //        let mut coin_found = false;
-        //        for block in blocks.iter().rev().collect::<Vec<&Block>>() { //check each block
-        //            for t in block.get_transactions() { //check each transaction in the block
-        //                println!("coin in transaction: {}", t.coins[0]);
-        //                if t.coins[0] == *coin { 
-        //                    coin_found = true; //if the coin gets found, check if the spender is
-        //                                       //the last owner of the coin
-        //                    if t.receiver != transaction.sender { // fail if sender doesnt own the
-        //                                                          // coin
-        //                        return Err(InvalidTransactionErr::IncompleteChain); 
-        //                    }
-        //                    break;
-        //                }
-        //            }            
-        //        }
-        //        if !coin_found { // if the coin is not in any blocks, fail
-        //            println!("coin: {}", &coin);
-        //            return Err(InvalidTransactionErr::UnknownCoin); 
-        //        }
-        //    }
-        //    Ok(())
-        //}
-
         pub fn check_transactions(&self, transactions: Vec<Transaction>) -> Result<Vec<Transaction>, InvalidTransactionErr> {
             let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr)).unwrap();
             transactions.iter().map(|transaction| { //TODO: If a transaction fail, carry on with
@@ -143,9 +116,8 @@ pub mod miner {
             let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
             let mut encoded_transactions: Vec<String> = capped_transactions.iter().map(|transaction| {
                                                                println!("transaction in new block: {}", &transaction);
-                                                               transaction.to_base64()
+                                                               transaction.clone().into()
                                                             }).collect();
-            //encoded_transactions.push(hash.clone());
             let data = encoded_transactions.join("");
             self.wallet.add_coin(hash.clone());
             Block::new(index, previous_hash, data, Some(hash)) 
@@ -154,7 +126,6 @@ pub mod miner {
 
     impl fmt::Display for Miner {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            //println!("{}:\n{}", "miner wallet: ", self.wallet);
             let joint_coins = self.wallet.coins.join(",");
             write!(f, "id: {}, name: {}, wallet: {}", self.id, self.name, joint_coins)
         }
