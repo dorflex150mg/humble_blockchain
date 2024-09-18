@@ -38,8 +38,8 @@ pub mod block {
         }
     }
 
-    pub fn check_transaction(transaction: &Transaction, blocks: &Vec<Block>) -> 
-            Result<(), InvalidTransactionErr> {
+    pub fn check_transaction(transaction: Transaction, blocks: &Vec<Block>) -> 
+            Result<Transaction, InvalidTransactionErr> {
         let coins = &transaction.coins;
         for coin in coins { //verify each coin is valid:
             let mut coin_found = false;
@@ -58,11 +58,10 @@ pub mod block {
                 }            
             }
             if !coin_found { // if the coin is not in any blocks, fail
-                println!("coin: {}", &coin);
                 return Err(InvalidTransactionErr::UnknownCoin); 
             }
         }
-        Ok(())
+        Ok(transaction)
     }
 
     impl Block {

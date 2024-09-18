@@ -63,7 +63,7 @@ pub mod miner {
         }
 
         pub fn mine(&mut self, mut block: Block, mut transactions: Vec<Transaction>) -> Result<(Block, u64), MiningError> {
-            self.transactions = self.check_transactions(transactions)?;
+            self.transactions = self.check_transactions(transactions);
             let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))?;
             let mut count = 0;
             loop {
@@ -99,18 +99,21 @@ pub mod miner {
         }
 
 
-        pub fn check_transactions(&self, transactions: Vec<Transaction>) -> Result<Vec<Transaction>, InvalidTransactionErr> {
-            let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr)).unwrap();
-            transactions.iter().map(|transaction| { //TODO: If a transaction fail, carry on with
-                                                    //the others
-                block::check_transaction(transaction, &chain_meta.blocks)
-            }).collect::<Result<Vec<_>, _>>()?;
-            Ok(transactions) 
+        pub fn check_transactions(&self, transactions: Vec<Transaction>) -> 
+                Vec<Transaction>  {
+            let chain_meta = self.chain_meta
+                .as_ref()
+                .ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))
+                .unwrap();
+            let filtered: Vec<Transaction> = transactions
+                .iter()
+                .filter_map(|transaction| { 
+                    block::check_transaction(transaction.clone(), &chain_meta.blocks).ok() 
+                }).collect();
+            filtered
         }
 
-        pub fn create_new_block(&mut self, hash: String, previous_hash: String) -> Block { // will receive
-                                                                                   // transactions
-                                                                                   // as argument
+        pub fn create_new_block(&mut self, hash: String, previous_hash: String) -> Block { 
             let index = self.chain_meta.clone().unwrap().len + 1; 
             let cap = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
             let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
