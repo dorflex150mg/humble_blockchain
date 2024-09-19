@@ -4,11 +4,12 @@ pub mod chain {
     use crate::Transaction;
 
     use std::fmt;
+    use serde::{Deserialize, Serialize};
     use sha2::{Digest, Sha256};
 
     const interval: u64 = 60; //difficulty increases if mining a block takes more than 1 minute
     
-    #[derive(Clone)]
+    #[derive(Clone, Serialize, Deserialize)]
     pub struct Chain {
         name: String,
         blocks: Vec<Block>,
@@ -50,7 +51,8 @@ pub mod chain {
             chain
         }
 
-        fn check_block_data(&self, data: String, previous_hash: &String, block_hash: &String, block_index: usize) -> Result<(), BlockCheckError> {
+        fn check_block_data(&self, data: String, previous_hash: &String, block_hash: &String, block_index: usize) 
+                -> Result<(), BlockCheckError> {
             let mut hasher = Sha256::new();
             hasher.update(data);
             let digest = hasher.finalize();  
@@ -87,7 +89,7 @@ pub mod chain {
         pub fn add_block(&mut self, block: Block, nonce: u64) -> Result<(), BlockCheckError> {
             if block.index != 0 {
                 let last_block = self.blocks.iter().last().clone().unwrap();
-                let str_block = format!("{}{}{}{}{}{}",
+                let str_block = format!("{}{}{}{}{}{}",  //TODO: block into string
                                  last_block.hash,
                                  last_block.previous_hash,
                                  last_block.data,

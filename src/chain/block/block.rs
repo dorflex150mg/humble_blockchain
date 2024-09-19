@@ -1,11 +1,13 @@
 pub mod block {
+    use crate::Transaction;
+
     use std::time::{SystemTime, UNIX_EPOCH};
     use std::fmt;
 
     use sha2::{Digest, Sha256};
+    use serde::{Deserialize, Serialize};
     use thiserror::Error;
 
-    use crate::Transaction;
 
     pub const MAX_TRANSACTIONS: usize = 8;
     pub const TRANSACTION_OFFSET: usize = 250;
@@ -13,7 +15,7 @@ pub mod block {
 
     pub const FIELD_END: char = ';';
 
-    #[derive(Default, Debug, Clone)]
+    #[derive(Default, Debug, Clone, Serialize, Deserialize)]
     pub struct Block {
         pub index: usize,
         pub previous_hash: String,
