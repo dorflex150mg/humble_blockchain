@@ -1,66 +1,89 @@
 pub mod gossip {
 
-    pub fn greet(tracker: String) -> std::net::Result<Neighbour> {
-        let socket = UdpSocket.bind(tracker)?;
-        let result = socket.set_read_timeout(Duration::new(TIMEOUT, 0)).unwrap();
-        let buffer: [u8; 1] = [GOSSIP_PROTOCOL::GREET;1];
-        socket.send_to(buffer)?;
-        let buffer: [u8; UUID_LENGTH] = [0; UUID_LENGTH];
-        socket.recv_from(buffer)?;
-        let id = buffer.length(uuid);
+    use crate::Chain;
+    use crate::Transaction;
+    use crate::node::neighbour::neighbour::{
+        Neighbour,
+        Role,
+    };
+    use crate::node::protocol::protocol;
+
+    use std::io::Result as IOResult; 
+    use std::time::Duration;
+    use std::net::UdpSocket;
+    use std::str;
+
+    use uuid::Uuid;
+
+    pub const TIMEOUT: u32 = 1;
+    pub const UUID_LENGTH: usize = 36;
+    pub const MAX_DATAGRAM_SIZE: usize = 65507;
+
+    pub fn greet(tracker: String) -> IOResult<Neighbour> {
+        let socket = UdpSocket::bind(tracker)?;
+        let result = socket.set_read_timeout(Some(Duration::new(TIMEOUT, 0))).unwrap();
+        let buffer: [u8; 1] = [protocol::GREET;1];
+        socket.send_to(&buffer, tracker)?;
+        let mut buffer: [u8; UUID_LENGTH] = [0; UUID_LENGTH];
+        socket.recv_from(&mut buffer)?;
+        let str_id = str::from_utf8(&buffer).unwrap();
         Ok(
             Neighbour {
-                id,
+                id: Uuid::parse_str(str_id).unwrap(),
                 address: tracker,
-                role: Roles::Tracker,
+                role: Role::Tracker,
             }
         )
     }
 
-    pub fn farewell(neighbour: Neigbour) -> std::net::Result<()> {
-        let socket = UdpSocket.bind(neighbour.address)?;
-        let buffer: [u8; 1] = [GOSSIP_PROTOCOL::FAREWELL;1];
-        socket.send_to(buffer)?;
+    pub fn farewell(neighbour: String) -> IOResult<()> {
+        let socket = UdpSocket::bind(&neighbour)?;
+        let buffer: [u8; 1] = [protocol::FAREWELL;1];
+        socket.send_to(&buffer, &neighbour)?;
+        Ok(())
     }
 
-    pub fn sendTransaction(miner: Neighbour, transaction: Transaction) -> std::net::Result<()> {
-        let socket = UdpSocket.bind(miner.address)?;
+    pub fn sendTransaction(miner: String, transaction: Transaction) -> IOResult<()> {
+        let socket = UdpSocket::bind(&miner)?;
         let str_transaction: String = transaction.into();
-        let mut  buffer: Vec<u8> = vec![GOSSIP_PROTOCOL::TRANSACTION];
+        let mut  buffer: Vec<u8> = vec![protocol::TRANSACTION];
         let tx_bytes = str_transaction.as_bytes().to_vec();
         buffer = [buffer, tx_bytes].concat();
-        socket.send_to(buffer)?;        
+        socket.send_to(&buffer, &miner)?;        
+        Ok(())
     }
 
-    pub fn pollChain(neighbour: Neighbour) -> std::net::Result<Chain> {
-        let socket = UdpSocket.bind(neighbour.address)?;
-        let buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
-        socket.recv_from(buffer)?;
-        match buffer.from_utf8() {
+    pub fn pollChain(neighbour: &Neighbour) -> IOResult<Chain> {
+        let socket = UdpSocket::bind(neighbour.address)?;
+        let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
+        socket.recv_from(&mut buffer)?;
+        match str::from_utf8(&buffer) {
             Ok(s) => Ok(Chain::from(s)),
             Err(e) => panic!("Wrong character on chain"),
         }
     }
 
-    pub fn sendChain(neighbour: Neighbour, chain: Chain) -> std::net::Result<()> {
-        let socket = UdpSocket.bind(neighbour.address)?;
+    pub fn sendChain(neighbour: String, chain: Chain) -> IOResult<()> {
+        let socket = UdpSocket::bind(neighbour)?;
         let str_chain: String = chain.into();
-        let mut buffer: Vec<u8> = vec![GOSSIP_PROTOCOL::CHAIN];
-        let chain_bytes = str_transaction.as_bytes().to_vec();
+        let mut buffer: Vec<u8> = vec![protocol::CHAIN];
+        let chain_bytes = str_chain.as_bytes().to_vec();
         buffer = [buffer, chain_bytes].concat();
-        socket.send_to(buffer)?;        
+        socket.send_to(&buffer, neighbour)?;        
+        Ok(())
     }
 
-    pub fn sendNewNeighbours(new_neighbours: Neighbours, chain: Chain) -> std::net::Result<()> {
-        for neighbour in Neighbours {
-            for new_neighbour in new_neighbour {
-                let socket = UdpSocket.bind(neighbour.address)?;
-                let str_neighbour: String = new_neighbour.into();
-                let mut buffer: Vec<u8> = vec![GOSSIP_PROTOCOL::NEIGHBOUR];
-                let buffer = str_new_neighbour.as_bytes();
-                buffer = [buffer, chain_bytes].concat();
-                socket.send_to(buffer)?;        
-            }
+    pub fn sendNewNeighbours(neighbour: String, new_neighbours: Vec<Neighbour>) -> IOResult<()> {
+        for new_neighbour in new_neighbours {
+            let socket = UdpSocket::bind(neighbour)?;
+            let str_neighbour: String = new_neighbour.into();
+            let mut buffer: Vec<u8> = vec![protocol::NEIGHBOUR];
+            let neighbour_bytes = str_neighbour.as_bytes().to_vec();
+            buffer = [buffer, neighbour_bytes].concat();
+            socket.send_to(&buffer, neighbour)?;        
         }
+        Ok(())
     }
+
+    pub fn waitGossipInterval() {}
 }

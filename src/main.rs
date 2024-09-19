@@ -19,6 +19,13 @@ mod transaction {
     pub mod transaction;
 }
 
+mod node {
+    pub mod node;
+    pub mod gossip;
+    pub mod neighbour;
+    pub mod protocol;
+}
+
 use crate::miner::miner::miner::Miner as Miner;
 use crate::chain::chain::chain::Chain as Chain;
 use crate::wallet::wallet::wallet::Wallet as Wallet;
