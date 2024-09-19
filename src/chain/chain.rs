@@ -1,7 +1,6 @@
 pub mod chain {
 
-    use crate::chain::block::{self, block::block::Block};
-    use crate::Transaction;
+    use crate::chain::block::{block::block::Block};
 
     use std::fmt;
     use serde::{Deserialize, Serialize};

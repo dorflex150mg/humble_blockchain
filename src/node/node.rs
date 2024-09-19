@@ -52,10 +52,10 @@ pub mod node {
 
     impl Node {
 
-        fn enterNetwork(&mut self, id: String, trackers: Vec<String>) -> Result<(), EnterAttemptError> {
+        pub async fn enterNetwork(&mut self, id: String, trackers: Vec<String>) -> Result<(), EnterAttemptError> {
             let mut cleared = false;
             for tracker in trackers {
-                match gossip::greet(tracker) {
+                match gossip::greet(tracker).await {
                     Ok(neighbour) => {
                         self.neighbours.push(neighbour);
                         cleared = true;
@@ -69,26 +69,26 @@ pub mod node {
             Ok(())
         }
 
-        fn leaveNetwork(&self) {
+        pub async fn leaveNetwork(&self) {
             for neighbour in &self.neighbours {
-                gossip::farewell(neighbour.address.clone());
+                gossip::farewell(neighbour.address.clone()).await;
             }
         }         
 
 
-        fn submitTransaction(&self, transaction: Transaction) {
+        pub async fn submitTransaction(&self, transaction: Transaction) {
             self.neighbours
                 .iter()
                 .filter(|neighbour| { neighbour.role == Role::Miner })
-                .map(|miner| { gossip::sendTransaction(miner.address.clone(), transaction.clone()) })
+                .map(|miner| async { gossip::sendTransaction(miner.address.clone(), transaction.clone()).await })
                 .collect::<Vec<_>>();
         }
 
-        fn updateChain(&self) -> Result<Chain, UpdateChainError> {
+        pub async fn updateChain(&self) -> Result<Chain, UpdateChainError> {
             let mut cursor = self.neighbours.iter();
             let mut cur_neighbour = cursor.next();
             while cur_neighbour != None {
-                match gossip::pollChain(cur_neighbour.unwrap()) {
+                match gossip::pollChain(cur_neighbour.unwrap()).await {
                     Ok(chain) => return Ok(chain),
                     Err(e) => cur_neighbour = cursor.next(),
                 }
@@ -96,16 +96,15 @@ pub mod node {
             Err(UpdateChainError::NoListeners)
         }
 
-        fn gossip(&self) {
-            gossip::waitGossipInterval();
+        pub async fn gossip(&self) {
+            gossip::waitGossipInterval().await;
             let random_neighbours = self.getRandomNeighbours();
             for neighbour in random_neighbours {
-                gossip::sendChain(neighbour.address.clone(), self.chain.clone());
-                gossip::sendNewNeighbours(neighbour.address.clone(), self.new_neighbours.clone());
+                gossip::sendChain(neighbour.address.clone(), self.chain.clone()).await;
+                gossip::sendNewNeighbours(neighbour.address.clone(), self.new_neighbours.clone()).await;
             }
         }
 
-        fn listen(&self) {}
 
         fn getRandomNeighbours(&self) -> Vec<Neighbour> {
             let mut neighbours = vec![];
@@ -117,6 +116,10 @@ pub mod node {
                 neighbours.push(self.neighbours[random].clone());
             }
             neighbours
+        }
+
+        fn listen(&self) {
+
         }
     }
 }

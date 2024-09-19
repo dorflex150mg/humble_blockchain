@@ -5,5 +5,6 @@ pub mod protocol {
     pub const NEIGHBOUR: u8 = 3;
     pub const TRANSACTION: u8 = 4;
     pub const CHAIN: u8 = 5;
+    pub const POLLCHAIN: u8 = 6;
 }
 
