@@ -10,7 +10,11 @@ pub mod node {
     };
     use crate::node::protocol::protocol;
 
-    use std::fmt;
+    use std::{
+        fmt,
+        io::Result as IOResult, 
+    };
+
 
     use uuid::{
         self,
@@ -21,12 +25,16 @@ pub mod node {
 
     #[derive(Error, Debug)] 
     pub enum EnterAttemptError {
-        NoListeners
+        NoListeners,
+        NoTrackers,
     }
 
     impl fmt::Display for EnterAttemptError {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "Failed to enter network - No trackers listening")
+            match self {
+                EnterAttemptError::NoListeners => write!(f, "Failed to enter network - No trackers listening."),
+                EnterAttemptError::NoTrackers => write!(f, "Failed to enter network - No trackers available."),
+            }
         }
     }
 
@@ -37,7 +45,7 @@ pub mod node {
 
     impl fmt::Display for UpdateChainError {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "Failed to update chain - No neighbours listening")
+            write!(f, "Failed to update chain - No neighbours listening.")
         }
     }
     
@@ -48,25 +56,32 @@ pub mod node {
         chain: Chain,
         neighbours: Vec<Neighbour>,
         new_neighbours: Vec<Neighbour>,
+        initialized: bool,
+        trackers: Option<Vec<String>>,
     }
 
     impl Node {
 
-        pub async fn enterNetwork(&mut self, id: String, trackers: Vec<String>) -> Result<(), EnterAttemptError> {
+        pub async fn enterNetwork(&mut self) -> Result<(), EnterAttemptError> {
             let mut cleared = false;
-            for tracker in trackers {
-                match gossip::greet(tracker).await {
-                    Ok(neighbour) => {
-                        self.neighbours.push(neighbour);
-                        cleared = true;
-                    },
-                    Err(e) => continue,
-                }
+            match &self.trackers {
+                Some(ts) => {
+                    for tracker in ts {
+                        match gossip::greet(tracker.as_str()).await {
+                            Ok(neighbour) => {
+                                self.neighbours.push(neighbour);
+                                cleared = true;
+                            },
+                            Err(e) => continue,
+                        }
+                    }
+                    if !cleared {
+                        return Err(EnterAttemptError::NoListeners)
+                    }
+                    Ok(())
+                },
+                None => Err(EnterAttemptError::NoTrackers)
             }
-            if !cleared {
-                return Err(EnterAttemptError::NoListeners)
-            }
-            Ok(())
         }
 
         pub async fn leaveNetwork(&self) {
@@ -118,9 +133,51 @@ pub mod node {
             neighbours
         }
 
-        fn listen(&self) {
+        pub async fn listen(&mut self) -> IOResult<()> {
+            loop {
+                if self.initialized {
+                    let (protocol, sender) = gossip::listenToGossip().await?;
+                    match protocol {
+                        protocol::GREET => self.presentId(sender).await?, 
+                        protocol::FAREWELL => self.removeNeighbour(sender).await?,
+                        protocol::NEIGHBOUR => self.addNeighbour().await?,
+                        protocol::TRANSACTION => self.addTransaction().await?,
+                        protocol::CHAIN => self.checkChain().await?,
+                        protocol::POLLCHAIN => self.shareChain().await?, 
+                        _ => () //TODO: Ignore with an error
+                    }
 
+                }
+                self.enterNetwork().await;
+            }
         }
+
+        pub async fn presentId(&self, sender: String) -> IOResult<()>{ 
+            let buffer = self.id.as_bytes(); 
+            gossip::sendId(buffer, sender).await;
+            Ok(())
+        }
+
+        pub async fn removeNeighbour(&mut self, sender: String) -> IOResult<()>{ 
+            for i in 0..self.neighbours.len() {
+                if self.neighbours[i].address == sender { // Rationale: Its better to match by ip than send an id
+                    self.neighbours.remove(i);
+                    return Ok(());
+                }
+            }
+            Ok(())
+        }
+
+        pub async fn addNeighbour(&self) -> IOResult<()>{ 
+            
+            Ok(())
+        }
+
+        pub async fn addTransaction(&self) -> IOResult<()>{ Ok(())}
+
+        pub async fn checkChain(&self) -> IOResult<()>{ Ok(())}
+
+        pub async fn shareChain(&self) -> IOResult<()>{ Ok(())}
     }
 }
 

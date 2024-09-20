@@ -8,32 +8,34 @@ pub mod gossip {
     };
     use crate::node::protocol::protocol;
 
-    use std::io::Result as IOResult; 
-    use std::time::Duration;
-    use tokio::net::UdpSocket;
-    //use std::net::UdpSocket;
-    use std::str;
+    use std::{
+        io::Result as IOResult, 
+        time::Duration,
+        str,
+        thread,
+    };
 
+    use tokio::net::UdpSocket;
     use uuid::Uuid;
 
     pub const LOCALHOST: &str = "127.0.0.1:8888";
 
-    pub const TIMEOUT: u64 = 1;
+    pub const GOSSIP_INTERVAL: u64 = 1;
     pub const UUID_LENGTH: usize = 36;
     pub const MAX_DATAGRAM_SIZE: usize = 65507;
 
-    pub async fn greet(tracker: String) -> IOResult<Neighbour> {
+    pub async fn greet(tracker: &str) -> IOResult<Neighbour> {
         let socket = UdpSocket::bind(LOCALHOST).await?;
         //let result = socket.set_read_timeout(Some(Duration::new(TIMEOUT, 0))).unwrap();
         let buffer: [u8; 1] = [protocol::GREET;1];
-        socket.send_to(&buffer, tracker.clone()).await?;
+        socket.send_to(&buffer, tracker).await?;
         let mut buffer: [u8; UUID_LENGTH] = [0; UUID_LENGTH];
         socket.recv_from(&mut buffer).await?;
         let str_id = str::from_utf8(&buffer).unwrap();
         Ok(
             Neighbour {
                 id: Uuid::parse_str(str_id).unwrap(),
-                address: tracker,
+                address: tracker.to_string(),
                 role: Role::Tracker,
             }
         )
@@ -90,5 +92,20 @@ pub mod gossip {
         Ok(())
     }
 
-    pub async fn waitGossipInterval() {}
+    pub async fn waitGossipInterval() {
+        thread::sleep(Duration::new(GOSSIP_INTERVAL, 0));
+    }
+
+
+    pub async fn listenToGossip() -> IOResult<(u8, String)> {
+        let socket = UdpSocket::bind(LOCALHOST).await?;
+        let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
+        let (n_bytes, sender) = socket.recv_from(&mut buffer).await?;
+        let ptcl = buffer[0];
+        Ok((ptcl, sender.to_string()))
+    }
+
+    pub async fn sendId(buffer: &[u8], sender: String) {} 
+
 }
+
