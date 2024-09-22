@@ -10,7 +10,6 @@ pub mod block {
 
 
     pub const MAX_TRANSACTIONS: usize = 8;
-    pub const TRANSACTION_OFFSET: usize = 250;
     pub const N_TRANSACTION_PARAMS: usize = 6;
 
     pub const FIELD_END: char = ';';

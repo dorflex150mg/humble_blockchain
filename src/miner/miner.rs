@@ -1,21 +1,19 @@
 pub mod miner {
 
-    use std::fmt;
-    use std::cmp;
-    use rand::{self, Rng};
-    
-    use thiserror::Error;
-    use uuid::Uuid;
-
     use crate::chain::block::block::block::{
         self, 
         Block, 
         InvalidTransactionErr
     };
-
     use crate::transaction::transaction::transaction::Transaction;
-    use crate::wallet::wallet::wallet::TransactionErr;
     use crate::Wallet;
+
+    use std::fmt;
+    use std::cmp;
+    use rand::{self, Rng};
+    
+    use thiserror::Error;
+
 
     pub const ZERO_WALLET_PK: [u8; 64]  = [0u8; 64];
 
@@ -62,7 +60,7 @@ pub mod miner {
             }
         }
 
-        pub fn mine(&mut self, mut block: Block, mut transactions: Vec<Transaction>) -> Result<(Block, u64), MiningError> {
+        pub fn mine(&mut self, mut block: Block, transactions: Vec<Transaction>) -> Result<(Block, u64), MiningError> {
             self.transactions = self.check_transactions(transactions);
             let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))?;
             let mut count = 0;

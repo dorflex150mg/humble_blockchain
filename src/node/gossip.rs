@@ -48,7 +48,7 @@ pub mod gossip {
         Ok(())
     }
 
-    pub async fn sendTransaction(miner: String, transaction: Transaction) -> IOResult<()> {
+    pub async fn send_transaction(miner: String, transaction: Transaction) -> IOResult<()> {
         let socket = UdpSocket::bind(LOCALHOST).await?;
         let str_transaction: String = transaction.into();
         let mut  buffer: Vec<u8> = vec![protocol::TRANSACTION];
@@ -58,7 +58,7 @@ pub mod gossip {
         Ok(())
     }
 
-    pub async fn pollChain(neighbour: &Neighbour) -> IOResult<Chain> {
+    pub async fn poll_chain(neighbour: &Neighbour) -> IOResult<Chain> {
         let socket = UdpSocket::bind(LOCALHOST).await?;
         let buffer: [u8; 1] = [protocol::POLLCHAIN;1];
         socket.send_to(&buffer, &neighbour.address).await?;
@@ -66,11 +66,11 @@ pub mod gossip {
         socket.recv_from(&mut buffer).await?;
         match str::from_utf8(&buffer) {
             Ok(s) => Ok(serde_json::from_str(&s).unwrap()),
-            Err(e) => panic!("Wrong character on chain"),
+            Err(e) => panic!("Wrong character on chain: {}", e),
         }
     }
 
-    pub async fn sendChain(neighbour: String, chain: Chain) -> IOResult<()> {
+    pub async fn send_chain(neighbour: String, chain: Chain) -> IOResult<()> {
         let socket = UdpSocket::bind(LOCALHOST).await?;
         let str_chain: String = serde_json::to_string(&chain).unwrap();
         let mut buffer: Vec<u8> = vec![protocol::CHAIN];
@@ -80,10 +80,10 @@ pub mod gossip {
         Ok(())
     }
 
-    pub async fn sendNewNeighbours(neighbour: String, new_neighbours: Vec<Neighbour>) -> IOResult<()> {
+    pub async fn send_new_neighbours(neighbour: String, new_neighbours: Vec<Neighbour>) -> IOResult<()> {
         for new_neighbour in new_neighbours {
             let socket = UdpSocket::bind(LOCALHOST).await?;
-            let str_neighbour: String = serde_json::to_string(&neighbour).unwrap();
+            let str_neighbour: String = serde_json::to_string(&new_neighbour).unwrap();
             let mut buffer: Vec<u8> = vec![protocol::NEIGHBOUR];
             let neighbour_bytes = str_neighbour.as_bytes().to_vec();
             buffer = [buffer, neighbour_bytes].concat();
@@ -93,20 +93,20 @@ pub mod gossip {
         Ok(())
     }
 
-    pub async fn waitGossipInterval() {
+    pub async fn wait_gossip_interval() {
         thread::sleep(Duration::new(GOSSIP_INTERVAL, 0));
     }
 
 
-    pub async fn listenToGossip() -> IOResult<(u8, String, Vec<u8>)> {
+    pub async fn listen_to_gossip() -> IOResult<(u8, String, Vec<u8>)> {
         let socket = UdpSocket::bind(LOCALHOST).await?;
         let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
-        let (n_bytes, sender) = socket.recv_from(&mut buffer).await?;
+        let (_n_bytes, sender) = socket.recv_from(&mut buffer).await?;
         let ptcl = buffer[0];
-        Ok((ptcl, sender.to_string(), buffer.to_vec()))
+        Ok((ptcl, sender.to_string(), buffer.to_vec())) //TODO:vec should be only n_bytes long?
     }
 
-    pub async fn sendId(buffer: &[u8], sender: String) {} 
+    pub async fn send_id(buffer: &[u8], sender: String) {} 
 
 }
 

@@ -43,7 +43,6 @@ fn main() {
     println!("miner created -> {}", miner); 
     let wallet1 = Wallet::new(String::from("wallet1"));
     let last_block = my_chain.get_last_block();
-    let hash = last_block.get_hash();
     miner.set_chain_meta(my_chain.get_len(), my_chain.difficulty, my_chain.get_blocks()); // mining a simple block 
     let (new_block, nonce) = match miner.mine(last_block, vec![]) {
         Ok((b, n)) => (b, n),
@@ -63,8 +62,6 @@ fn main() {
     let signed_t1 = miner.wallet.sign(t1);
     //println!("A transaction: {}", &signed_t1);
     //miner.set_transactions(vec![signed_t1]); //this is ugly and for only for testing
-    let last_block = my_chain.get_last_block();
-    let hash = last_block.get_hash();
     miner.set_chain_meta(my_chain.get_len(), my_chain.difficulty, my_chain.get_blocks());
     println!("mining with signed_t1");
     let (newer_block, new_nonce) = match miner.mine(my_chain.get_last_block(), vec![signed_t1]) { // mining with transactions
@@ -84,11 +81,10 @@ fn main() {
                                                                    // be clonable
     let mut miner2 = Miner::new(2, String::from("miner 2")); // two miners 
     let chain2 = chain_arc.clone();
-    let handle = thread::spawn(move || {
-        for i in 0..100 {
+    let _ = thread::spawn(move || {
+        for _ in 0..100 {
             println!("miner 2 mining\n\n\n\n");
             let last_block = chain2.lock().unwrap().get_last_block();
-            let hash = last_block.get_hash();
             let chain_len = chain2.lock().unwrap().get_len();
             let difficulty = chain2.lock().unwrap().difficulty;
             miner2.set_chain_meta(chain_len, difficulty, chain2.lock().unwrap().get_blocks());
@@ -104,11 +100,10 @@ fn main() {
         }
     });
 
-    for i in 0..100 {
+    for _ in 0..100 {
         println!("miner 1 mining\n\n\n\n");
         let chain = other_chain_arc.clone();
         let last_block = chain.lock().unwrap().get_last_block();
-        let hash = last_block.get_hash();
         let chain_len = chain.lock().unwrap().get_len();
         let difficulty = chain.lock().unwrap().difficulty;
         println!("miner 1 setting chain meta");

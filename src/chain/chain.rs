@@ -7,7 +7,7 @@ pub mod chain {
     use serde::{Deserialize, Serialize};
     use sha2::{Digest, Sha256};
 
-    const interval: u64 = 60; //difficulty increases if mining a block takes more than 1 minute
+    const INTERVAL: u64 = 60; //difficulty increases if mining a block takes more than 1 minute
     
     #[derive(Clone, Serialize, Deserialize)]
     pub struct Chain {
@@ -39,7 +39,7 @@ pub mod chain {
 
     impl Chain {
         pub fn new(name: String) -> Self {
-            let mut genesis_block = Block::new(0, "0".repeat(64), String::from(""), Some("0".repeat(64)));
+            let genesis_block = Block::new(0, "0".repeat(64), String::from(""), Some("0".repeat(64)));
             println!("genesis block data: {:?}", genesis_block.data);
             let mut chain = Chain {
                 name,
@@ -76,7 +76,7 @@ pub mod chain {
         }
 
         fn check_difficulty(&mut self, block_timestamp: u64) {
-            if block_timestamp < self.blocks.iter().last().unwrap().timestamp + interval { 
+            if block_timestamp < self.blocks.iter().last().unwrap().timestamp + INTERVAL { 
                 println!("difficulty just went up");
                 self.difficulty += 1;
             }

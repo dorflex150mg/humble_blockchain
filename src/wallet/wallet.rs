@@ -3,7 +3,7 @@ pub mod wallet {
     use crate::transaction::transaction::transaction::Transaction;
  
     use ring::rand::{SystemRandom};
-    use ring::signature::{Ed25519KeyPair, KeyPair, EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
+    use ring::signature::{KeyPair, EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
     use std::fmt;
 
     pub struct Wallet {
@@ -72,7 +72,7 @@ pub mod wallet {
                            &transaction.timestamp.to_ne_bytes()];
             let mut vec: Vec<u8> = members.concat();
             let coins: Vec<Vec<u8>> = transaction.coins.iter().map(|coin| {
-                                                       coin.as_bytes().clone().to_vec()
+                                                       coin.as_bytes().to_vec()
                                                     }).collect();
             for mut i in coins {
                 vec.append(&mut i);

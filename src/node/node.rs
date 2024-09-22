@@ -92,7 +92,7 @@ pub mod node {
 
     impl Node {
 
-        pub async fn enterNetwork(&mut self) -> Result<(), EnterAttemptError> {
+        pub async fn enter_network(&mut self) -> Result<(), EnterAttemptError> {
             let mut cleared = false;
             match &self.trackers {
                 Some(ts) => {
@@ -102,7 +102,7 @@ pub mod node {
                                 self.neighbours.insert(neighbour.id.clone(), neighbour);
                                 cleared = true;
                             },
-                            Err(e) => continue,
+                            Err(_) => continue,
                         }
                     }
                     if !cleared {
@@ -114,50 +114,50 @@ pub mod node {
             }
         }
 
-        pub async fn leaveNetwork(&self) {
+        pub async fn leave_network(&self) {
             for neighbour in &self.neighbours {
-                gossip::farewell(neighbour.1.address.clone()).await;
+                let _ = gossip::farewell(neighbour.1.address.clone()).await;
             }
         }         
 
 
-        pub async fn submitTransaction(&self, transaction: Transaction) {
-            self.neighbours
+        pub async fn submit_transaction(&self, transaction: Transaction) {
+            let _ = self.neighbours
                 .iter()
                 .filter(|neighbour| { neighbour.1.role == Role::Miner })
-                .map(|miner| async { gossip::sendTransaction(miner.1.address.clone(), transaction.clone()).await })
+                .map(|miner| async { gossip::send_transaction(miner.1.address.clone(), transaction.clone()).await })
                 .collect::<Vec<_>>();
         }
 
-        pub async fn updateChain(&self) -> Result<Chain, UpdateChainError> {
+        pub async fn update_chain(&self) -> Result<Chain, UpdateChainError> {
             let mut cursor = self.neighbours.iter();
             let mut cur_neighbour = cursor.next();
             while cur_neighbour != None {
-                match gossip::pollChain(cur_neighbour.unwrap().1).await {
+                match gossip::poll_chain(cur_neighbour.unwrap().1).await {
                     Ok(chain) => return Ok(chain),
-                    Err(e) => cur_neighbour = cursor.next(),
+                    Err(_) => cur_neighbour = cursor.next(),
                 }
             }
             Err(UpdateChainError::NoListeners)
         }
 
         pub async fn gossip(&mut self) {
-            gossip::waitGossipInterval().await;
-            let random_neighbours = self.getRandomNeighbours();
+            gossip::wait_gossip_interval().await;
+            let random_neighbours = self.get_random_neighbours();
             for neighbour in random_neighbours {
-                gossip::sendChain(neighbour.address.clone(), self.chain.clone()).await;
-                gossip::sendNewNeighbours(neighbour.address.clone(), self.new_neighbours.clone()).await;
+                let _ = gossip::send_chain(neighbour.address.clone(), self.chain.clone()).await;
+                let _ = gossip::send_new_neighbours(neighbour.address.clone(), self.new_neighbours.clone()).await;
                 self.new_neighbours = vec![];
             }
         }
 
 
-        fn getRandomNeighbours(&self) -> Vec<Neighbour> {
+        fn get_random_neighbours(&self) -> Vec<Neighbour> {
             let mut neighbours = vec![];
             let mut rng = rand::thread_rng();
             let float_n = self.neighbours.len() as f64;
             let n: usize = float_n.sqrt().floor() as usize;
-            for i in 0..n {
+            for _ in 0..n {
                 let random: usize = rng.gen_range(0..self.neighbours.len());
                 let key = self.neighbours 
                     .keys()
@@ -172,35 +172,35 @@ pub mod node {
         pub async fn listen(&mut self) -> IOResult<()> {
             loop {
                 if self.initialized {
-                    let (protocol, sender, buffer) = gossip::listenToGossip().await?;
-                    let res = match protocol { //TODO: deal with errors
-                        protocol::GREET => self.presentId(sender).await?, 
-                        protocol::FAREWELL => self.removeNeighbour(sender).await?,
-                        protocol::NEIGHBOUR => self.addNeighbour(buffer).await?,
-                        protocol::TRANSACTION => self.addTransaction(buffer).await?,
-                        protocol::CHAIN => self.checkChain(buffer).await?,
-                        protocol::POLLCHAIN => self.shareChain().await?, 
+                    let (protocol, sender, buffer) = gossip::listen_to_gossip().await?;
+                    let _res = match protocol { //TODO: deal witn Some replies 
+                        protocol::GREET => self.present_id(sender).await?, 
+                        protocol::FAREWELL => self.remove_neigbour(sender).await?,
+                        protocol::NEIGHBOUR => self.add_neighbour(buffer).await?,
+                        protocol::TRANSACTION => self.add_transaction(buffer).await?,
+                        protocol::CHAIN => self.check_chain(buffer).await?,
+                        protocol::POLLCHAIN => self.share_chain().await?, 
                         _ => None//TODO: Ignore with an error
 
                     };
 
                 }
-                self.enterNetwork().await;
+                let _ = self.enter_network().await;
             }
         }
 
-        pub async fn presentId(&self, sender: String) -> IOResult<Option<Box<dyn Reply>>>{ 
+        pub async fn present_id(&self, sender: String) -> IOResult<Option<Box<dyn Reply>>>{ 
             let buffer = self.id.as_bytes(); 
-            gossip::sendId(buffer, sender).await;
+            gossip::send_id(buffer, sender).await;
             Ok(None)
         }
 
-        pub async fn removeNeighbour(&mut self, sender: String) -> IOResult<Option<Box<dyn Reply>>>{ 
+        pub async fn remove_neigbour(&mut self, sender: String) -> IOResult<Option<Box<dyn Reply>>>{ 
             self.neighbours.retain(|_, v| v.address != sender);
             Ok(None)
         }
 
-        pub async fn addNeighbour(&mut self, mut buffer: Vec<u8>)  -> IOResult<Option<Box<dyn Reply>>>{ 
+        pub async fn add_neighbour(&mut self, mut buffer: Vec<u8>)  -> IOResult<Option<Box<dyn Reply>>>{ 
             buffer.remove(0);
             let str_buffer = str::from_utf8(&buffer)
                 .expect("Malformed request to add neighbour -- Unable to parse");
@@ -210,7 +210,7 @@ pub mod node {
             Ok(None)
         }
 
-        pub async fn addTransaction(&self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>>{ 
+        pub async fn add_transaction(&self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>>{ 
             if self.role != Role::Miner {
                 return Ok(None) //TODO: we need to return some kind of error
             }            
@@ -222,7 +222,7 @@ pub mod node {
             Ok(Some(Box::new(transaction)))
         }
             
-        pub async fn checkChain(&self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>>{ 
+        pub async fn check_chain(&self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>>{ 
             buffer.remove(0);
             let str_buffer = str::from_utf8(&buffer)
                 .expect("Malformed request to check chain -- Unable to parse");
@@ -231,7 +231,7 @@ pub mod node {
             Ok(Some(Box::new(chain)))
         }
 
-        pub async fn shareChain(&self) -> IOResult<Option<Box<dyn Reply>>>{ Ok(None)}
+        pub async fn share_chain(&self) -> IOResult<Option<Box<dyn Reply>>>{ Ok(None)}
     }
 }
 
