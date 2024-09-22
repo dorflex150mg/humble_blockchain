@@ -24,6 +24,7 @@ mod node {
     pub mod gossip;
     pub mod neighbour;
     pub mod protocol;
+    pub mod reply;
 }
 
 use crate::miner::miner::miner::Miner as Miner;

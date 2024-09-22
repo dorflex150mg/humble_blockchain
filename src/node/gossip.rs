@@ -88,6 +88,7 @@ pub mod gossip {
             let neighbour_bytes = str_neighbour.as_bytes().to_vec();
             buffer = [buffer, neighbour_bytes].concat();
             socket.send_to(&buffer, &neighbour).await?;        
+
         }
         Ok(())
     }
@@ -97,12 +98,12 @@ pub mod gossip {
     }
 
 
-    pub async fn listenToGossip() -> IOResult<(u8, String)> {
+    pub async fn listenToGossip() -> IOResult<(u8, String, Vec<u8>)> {
         let socket = UdpSocket::bind(LOCALHOST).await?;
         let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
         let (n_bytes, sender) = socket.recv_from(&mut buffer).await?;
         let ptcl = buffer[0];
-        Ok((ptcl, sender.to_string()))
+        Ok((ptcl, sender.to_string(), buffer.to_vec()))
     }
 
     pub async fn sendId(buffer: &[u8], sender: String) {} 

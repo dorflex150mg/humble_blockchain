@@ -1,4 +1,7 @@
 pub mod transaction {
+    
+    use crate::node::reply::reply::Reply;
+
     use std::{
         fmt,
         num::ParseIntError,
@@ -88,6 +91,8 @@ pub mod transaction {
             write!(f, "timestamp: {}, sender: {:?}, receiver: {:?}, coins: {}", 
                     self.timestamp, self.sender, self.receiver, self.coins.join(" "))
         }
-   }
+    }
+
+    impl Reply for Transaction {}
 
 }

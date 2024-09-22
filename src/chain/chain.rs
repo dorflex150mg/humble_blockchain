@@ -1,6 +1,7 @@
 pub mod chain {
 
     use crate::chain::block::{block::block::Block};
+    use crate::node::reply::reply::Reply;
 
     use std::fmt;
     use serde::{Deserialize, Serialize};
@@ -123,4 +124,6 @@ pub mod chain {
             collect
         }
     }
+
+    impl Reply for Chain {}
 }
