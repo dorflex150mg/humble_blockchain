@@ -50,11 +50,10 @@ pub mod miner {
     
     impl Miner {
         pub fn new(id: u64, name: String) -> Self {
-            let w_name = name.clone();
             Miner {
                 id,
                 name,
-                wallet: Wallet::new(w_name),
+                wallet: Wallet::new(),
                 transactions: vec![],
                 chain_meta: None,
             }

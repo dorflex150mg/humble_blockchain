@@ -11,7 +11,6 @@ pub mod chain {
     
     #[derive(Clone, Serialize, Deserialize)]
     pub struct Chain {
-        name: String,
         blocks: Vec<Block>,
         len: usize,
         pub difficulty: usize,
@@ -38,11 +37,9 @@ pub mod chain {
     }
 
     impl Chain {
-        pub fn new(name: String) -> Self {
+        pub fn new() -> Self {
             let genesis_block = Block::new(0, "0".repeat(64), String::from(""), Some("0".repeat(64)));
-            println!("genesis block data: {:?}", genesis_block.data);
             let mut chain = Chain {
-                name,
                 blocks: vec![],
                 len: 0,
                 difficulty: 1,

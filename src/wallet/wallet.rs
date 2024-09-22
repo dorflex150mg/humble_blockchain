@@ -7,7 +7,6 @@ pub mod wallet {
     use std::fmt;
 
     pub struct Wallet {
-        pub name: String,
         //pub key_pair: Ed25519KeyPair,
         pub key_pair: EcdsaKeyPair,
         pub coins: Vec<String>,
@@ -21,21 +20,18 @@ pub mod wallet {
     fn generate_key_pair() -> (EcdsaKeyPair, SystemRandom) {
         let rng = SystemRandom::new();
         let pkcs8_bytes = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).unwrap(); // pkcs#8 key syntax
-        // with Edwards curve
-        // algorithm
+                                                                                                        // with Edwards curve
+                                                                                                        // algorithm
         let key_pair = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, pkcs8_bytes.as_ref(), &rng)
         .unwrap();  //key struct from bytes
-        
-        println!("printing the key pair: {:#?}", key_pair);
         (key_pair, rng)
     }
 
 
     impl Wallet {
-        pub fn new(name: String) -> Self{
+        pub fn new() -> Self{
             let (key_pair, rng) = generate_key_pair();
             Wallet {
-                name,
                 coins: vec![],
                 key_pair,
                 rng,
@@ -104,7 +100,7 @@ pub mod wallet {
     impl fmt::Display for Wallet {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { 
             let joint_coins = self.coins.join(",\n");
-            write!(f, "{}: {{\n{}}}", self.name, joint_coins)
+            write!(f, "{{\n{}}}", joint_coins)
         }
     }
 }

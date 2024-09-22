@@ -72,7 +72,6 @@ pub mod node {
         }
     }
 
-
     #[derive(Error, Debug, derive_more::From, derive_more::Display)]
     pub enum ListenError {
         WrongRoleError(WrongRoleError),
@@ -82,6 +81,7 @@ pub mod node {
     pub struct Node {
         id: Uuid,
         role: Role,
+        address: String,
         wallet: Wallet,
         chain: Chain,
         neighbours: HashMap<Uuid, Neighbour>,
@@ -92,20 +92,47 @@ pub mod node {
 
     impl Node {
 
+        pub fn new(role: Role, address: String, trackers: Option<Vec<String>>) -> 
+                Result<Self, WrongRoleError> {
+            if trackers == None && role != Role::Tracker {
+                return Err(WrongRoleError::NotTracker);
+            }
+            Ok(Node {
+                id: Uuid::new_v4(),
+                role, 
+                address, 
+                wallet: Wallet::new(),
+                chain: Chain::new(),
+                neighbours: HashMap::new(),
+                new_neighbours: vec![],
+                initialized: false,
+                trackers,
+            })
+        }
+
+
+        pub async fn listen_to_greet(&mut self) -> IOResult<()> {
+            self.initialized = true; 
+            println!("{} started listening", self.id);
+            self.listen().await?;
+            println!("{} finished listening", self.id);
+            Ok(())
+        }
+
         pub async fn enter_network(&mut self) -> Result<(), EnterAttemptError> {
-            let mut cleared = false;
+            println!("{} entering network", self.id);
             match &self.trackers {
                 Some(ts) => {
                     for tracker in ts {
-                        match gossip::greet(tracker.as_str()).await {
+                        match gossip::greet(self.address.clone(), tracker.as_str()).await {
                             Ok(neighbour) => {
                                 self.neighbours.insert(neighbour.id.clone(), neighbour);
-                                cleared = true;
+                                self.initialized = true;
                             },
                             Err(_) => continue,
                         }
                     }
-                    if !cleared {
+                    if ! self.initialized {
                         return Err(EnterAttemptError::NoListeners)
                     }
                     Ok(())
@@ -116,7 +143,7 @@ pub mod node {
 
         pub async fn leave_network(&self) {
             for neighbour in &self.neighbours {
-                let _ = gossip::farewell(neighbour.1.address.clone()).await;
+                let _ = gossip::farewell(self.address.clone(), neighbour.1.address.clone()).await;
             }
         }         
 
@@ -125,7 +152,10 @@ pub mod node {
             let _ = self.neighbours
                 .iter()
                 .filter(|neighbour| { neighbour.1.role == Role::Miner })
-                .map(|miner| async { gossip::send_transaction(miner.1.address.clone(), transaction.clone()).await })
+                .map(|miner| async { gossip::send_transaction(self.address.clone(), 
+                        miner.1.address.clone(), 
+                        transaction.clone()).await 
+                })
                 .collect::<Vec<_>>();
         }
 
@@ -133,7 +163,7 @@ pub mod node {
             let mut cursor = self.neighbours.iter();
             let mut cur_neighbour = cursor.next();
             while cur_neighbour != None {
-                match gossip::poll_chain(cur_neighbour.unwrap().1).await {
+                match gossip::poll_chain(self.address.clone(), cur_neighbour.unwrap().1).await {
                     Ok(chain) => return Ok(chain),
                     Err(_) => cur_neighbour = cursor.next(),
                 }
@@ -145,8 +175,16 @@ pub mod node {
             gossip::wait_gossip_interval().await;
             let random_neighbours = self.get_random_neighbours();
             for neighbour in random_neighbours {
-                let _ = gossip::send_chain(neighbour.address.clone(), self.chain.clone()).await;
-                let _ = gossip::send_new_neighbours(neighbour.address.clone(), self.new_neighbours.clone()).await;
+                if self.chain.get_len() > 0 {
+                    let _ = gossip::send_chain(self.address.clone(), 
+                        neighbour.address.clone(), 
+                        self.chain.clone()).await;
+                }
+                if self.new_neighbours.len() > 0 {
+                    let _ = gossip::send_new_neighbours(self.address.clone(), 
+                        neighbour.address.clone(), 
+                        self.new_neighbours.clone()).await;
+                }
                 self.new_neighbours = vec![];
             }
         }
@@ -172,7 +210,7 @@ pub mod node {
         pub async fn listen(&mut self) -> IOResult<()> {
             loop {
                 if self.initialized {
-                    let (protocol, sender, buffer) = gossip::listen_to_gossip().await?;
+                    let (protocol, sender, buffer) = gossip::listen_to_gossip(self.address.clone()).await?;
                     let _res = match protocol { //TODO: deal witn Some replies 
                         protocol::GREET => self.present_id(sender).await?, 
                         protocol::FAREWELL => self.remove_neigbour(sender).await?,
@@ -183,24 +221,23 @@ pub mod node {
                         _ => None//TODO: Ignore with an error
 
                     };
-
                 }
-                let _ = self.enter_network().await;
             }
         }
 
         pub async fn present_id(&self, sender: String) -> IOResult<Option<Box<dyn Reply>>>{ 
-            let buffer = self.id.as_bytes(); 
-            gossip::send_id(buffer, sender).await;
+            gossip::send_id(self.address.clone(), self.id.clone(), sender).await;
             Ok(None)
         }
 
-        pub async fn remove_neigbour(&mut self, sender: String) -> IOResult<Option<Box<dyn Reply>>>{ 
+        pub async fn remove_neigbour(&mut self, sender: String) -> 
+                IOResult<Option<Box<dyn Reply>>>{ 
             self.neighbours.retain(|_, v| v.address != sender);
             Ok(None)
         }
 
-        pub async fn add_neighbour(&mut self, mut buffer: Vec<u8>)  -> IOResult<Option<Box<dyn Reply>>>{ 
+        pub async fn add_neighbour(&mut self, mut buffer: Vec<u8>)  -> 
+                IOResult<Option<Box<dyn Reply>>>{ 
             buffer.remove(0);
             let str_buffer = str::from_utf8(&buffer)
                 .expect("Malformed request to add neighbour -- Unable to parse");
@@ -210,7 +247,8 @@ pub mod node {
             Ok(None)
         }
 
-        pub async fn add_transaction(&self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>>{ 
+        pub async fn add_transaction(&self, mut buffer: Vec<u8>) -> 
+                IOResult<Option<Box<dyn Reply>>>{ 
             if self.role != Role::Miner {
                 return Ok(None) //TODO: we need to return some kind of error
             }            
@@ -222,7 +260,8 @@ pub mod node {
             Ok(Some(Box::new(transaction)))
         }
             
-        pub async fn check_chain(&self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>>{ 
+        pub async fn check_chain(&self, mut buffer: Vec<u8>) -> 
+                IOResult<Option<Box<dyn Reply>>>{ 
             buffer.remove(0);
             let str_buffer = str::from_utf8(&buffer)
                 .expect("Malformed request to check chain -- Unable to parse");
