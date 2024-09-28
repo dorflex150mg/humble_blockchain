@@ -82,6 +82,7 @@ pub mod node {
         id: Uuid,
         role: Role,
         address: String,
+        transaction_buffer: Option<Vec<Transaction>>,
         wallet: Wallet,
         chain: Chain,
         neighbours: HashMap<Uuid, Neighbour>,
@@ -97,10 +98,15 @@ pub mod node {
             if trackers == None && role != Role::Tracker {
                 return Err(WrongRoleError::NotTracker);
             }
+            let mut transaction_buffer = None;
+            if role == Role::Miner {
+                transaction_buffer = Some(vec![]);
+            }
             Ok(Node {
                 id: Uuid::new_v4(),
                 role, 
                 address, 
+                transaction_buffer, 
                 wallet: Wallet::new(),
                 chain: Chain::new(),
                 neighbours: HashMap::new(),
@@ -215,7 +221,7 @@ pub mod node {
             loop {
                 if self.initialized {
                     let (protocol, sender, buffer) = gossip::listen_to_gossip(self.address.clone()).await?;
-                    let _res = match protocol { //TODO: deal witn Some replies 
+                    let res = match protocol { //TODO: deal witn Some replies 
                         protocol::GREET => self.present_id(sender).await?, 
                         protocol::FAREWELL => self.remove_neigbour(sender).await?,
                         protocol::NEIGHBOUR => self.add_neighbour(buffer).await?,
@@ -225,8 +231,22 @@ pub mod node {
                         _ => None//TODO: Ignore with an error
 
                     };
+                    match res {
+                        Some(mut ptr) => match &ptr.as_chain() {
+                            Some(chain) => self.chain = (**chain).clone(),
+                            None => match &ptr.as_transaction() {
+                                Some(transaction) => match &mut self.transaction_buffer {
+                                    Some(ref mut buffer) => buffer.push((**transaction).clone()),
+                                    None => (),
+                                }
+                                None => (),
+                            },
+                        },
+                        None => (),
+                    }
                 }
             }
+            Ok(())
         }
 
         pub async fn present_id(&self, sender: String) -> IOResult<Option<Box<dyn Reply>>>{ 

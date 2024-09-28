@@ -1,6 +1,7 @@
 pub mod transaction {
     
     use crate::node::reply::reply::Reply;
+    use crate::Chain;
 
     use std::{
         fmt,
@@ -77,6 +78,14 @@ pub mod transaction {
         }
     }
 
-    impl Reply for Transaction {}
+    impl Reply for Transaction {
+        fn as_transaction(&mut self) -> Option<&mut Transaction> {
+            Some(self)
+        }
+
+        fn as_chain(&mut self) -> Option<&mut Chain> {
+            None
+        }
+    }
 
 }

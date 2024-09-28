@@ -2,6 +2,7 @@ pub mod chain {
 
     use crate::chain::block::{block::block::Block};
     use crate::node::reply::reply::Reply;
+    use crate::Transaction;
 
     use std::fmt;
     use serde::{Deserialize, Serialize};
@@ -141,5 +142,13 @@ pub mod chain {
         }
     }
 
-    impl Reply for Chain {}
+    impl Reply for Chain {
+        fn as_transaction(&mut self) -> Option<&mut Transaction> {
+            None
+        }
+
+        fn as_chain(&mut self) -> Option<&mut Chain> {
+            Some(self)
+        }
+    }
 }
