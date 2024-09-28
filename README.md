@@ -33,6 +33,7 @@ To execute the blockchain simulation, run the following command in the root dire
 
 ```bash
 cargo run
+```
 
 This will simulate a blockchain where:
 
