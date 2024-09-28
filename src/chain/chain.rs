@@ -28,10 +28,29 @@ pub mod chain {
     impl fmt::Display for BlockCheckError {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             match self {
-                BlockCheckError::WrongIndex(block_index, chain_index) => write!(f, "Wrong index. Expected index {}, but the mined block index was {}", block_index, chain_index),
-                BlockCheckError::InvalidPrefix(difficulty) => write!(f, "Invalid prefix - Not enough \"0\"'s at the beginning. Current difficulty: {}", difficulty),
-                BlockCheckError::NotInChain {expected, got} => write!(f, "Previous hash not in chain. Expected: {}, but got: {}", expected, got),
-                BlockCheckError::WrongHash {expected, got} => write!(f, "Wrong hash. Expected: {}, but got: {}", expected, got),
+                BlockCheckError::WrongIndex(block_index, chain_index) => write!(
+                    f, 
+                    "Wrong index. Expected index {}, but the mined block index was {}", 
+                    block_index, 
+                    chain_index
+                ),
+                BlockCheckError::InvalidPrefix(difficulty) => write!(
+                    f, 
+                    "Invalid prefix - Not enough \"0\"'s at the beginning. Current difficulty: {}", 
+                    difficulty
+                ),
+                BlockCheckError::NotInChain {expected, got} => write!(
+                    f, 
+                    "Previous hash not in chain. Expected: {}, but got: {}", 
+                    expected, 
+                    got
+                ),
+                BlockCheckError::WrongHash {expected, got} => write!(
+                    f, 
+                    "Wrong hash. Expected: {}, but got: {}", 
+                    expected, 
+                    got
+                ),
             }
         }
     }
@@ -87,12 +106,12 @@ pub mod chain {
             if block.index != 0 {
                 let last_block = self.blocks.iter().last().clone().unwrap();
                 let str_block = format!("{}{}{}{}{}{}",  //TODO: block into string
-                                 last_block.hash,
-                                 last_block.previous_hash,
-                                 last_block.data,
-                                 last_block.timestamp,
-                                 last_block.index,
-                                 nonce, //add mined nonce
+                    last_block.hash,
+                    last_block.previous_hash,
+                    last_block.data,
+                    last_block.timestamp,
+                    last_block.index,
+                    nonce, //add mined nonce
                 );
                 let data = str_block.clone();
                 let previous_hash = &block.previous_hash;

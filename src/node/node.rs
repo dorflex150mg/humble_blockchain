@@ -110,6 +110,9 @@ pub mod node {
             })
         }
 
+        pub fn get_n_neighbours(&self) -> usize {
+            self.neighbours.len()
+        }
 
         pub async fn listen_to_greet(&mut self) -> IOResult<()> {
             self.initialized = true; 
@@ -135,6 +138,7 @@ pub mod node {
                     if ! self.initialized {
                         return Err(EnterAttemptError::NoListeners)
                     }
+                    println!("number of neighbours in sender: {}", self.neighbours.len());
                     Ok(())
                 },
                 None => Err(EnterAttemptError::NoTrackers)

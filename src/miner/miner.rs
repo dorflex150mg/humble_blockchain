@@ -59,9 +59,12 @@ pub mod miner {
             }
         }
 
-        pub fn mine(&mut self, mut block: Block, transactions: Vec<Transaction>) -> Result<(Block, u64), MiningError> {
+        pub fn mine(&mut self, mut block: Block, transactions: Vec<Transaction>) 
+                -> Result<(Block, u64), MiningError> {
             self.transactions = self.check_transactions(transactions);
-            let chain_meta = self.chain_meta.as_ref().ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))?;
+            let chain_meta = self.chain_meta.as_ref().ok_or(
+                MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr)
+            )?;
             let mut count = 0;
             loop {
                 count += 1;
@@ -69,11 +72,11 @@ pub mod miner {
                 block.nonce  = rng.gen_range(0..=u64::MAX);
                 let str_digest = block.calculate_hash();
                 if str_digest.starts_with(&"0".repeat(chain_meta.difficulty)) {
-                    println!("found digest: {} in attept: {}", str_digest.clone(), count);
                     let prize_transaction = Transaction::new(
                         ZERO_WALLET_PK.to_vec(), 
                         self.wallet.get_pub_key(), 
-                        vec![str_digest.clone()]);
+                        vec![str_digest.clone()],
+                    );
                     let signed_prize = self.wallet.sign(prize_transaction);
                     self.transactions.push(signed_prize);
                     return Ok((self.create_new_block(str_digest, block.hash.clone()), block.nonce));
@@ -85,10 +88,10 @@ pub mod miner {
 
         pub fn set_chain_meta(&mut self, len: usize, difficulty: usize, blocks: Vec<Block>) {
             self.chain_meta = Some(ChainMeta {
-                                     len,
-                                     difficulty,
-                                     blocks,
-                                })
+                len,
+                difficulty,
+                blocks,
+            })
         }
 
         pub fn set_transactions(&mut self, new_transactions: Vec<Transaction>) {
@@ -115,9 +118,8 @@ pub mod miner {
             let cap = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
             let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
             let mut encoded_transactions: Vec<String> = capped_transactions.iter().map(|transaction| {
-                                                               println!("transaction in new block: {}", &transaction);
-                                                               transaction.clone().into()
-                                                            }).collect();
+                transaction.clone().into()
+            }).collect();
             let data = encoded_transactions.join("");
             self.wallet.add_coin(hash.clone());
             Block::new(index, previous_hash, data, Some(hash)) 

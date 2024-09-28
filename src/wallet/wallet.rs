@@ -19,11 +19,9 @@ pub mod wallet {
 
     fn generate_key_pair() -> (EcdsaKeyPair, SystemRandom) {
         let rng = SystemRandom::new();
-        let pkcs8_bytes = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).unwrap(); // pkcs#8 key syntax
-                                                                                                        // with Edwards curve
-                                                                                                        // algorithm
+        let pkcs8_bytes = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).unwrap();
         let key_pair = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, pkcs8_bytes.as_ref(), &rng)
-        .unwrap();  //key struct from bytes
+        .unwrap();  
         (key_pair, rng)
     }
 
@@ -64,12 +62,13 @@ pub mod wallet {
             let arr_sender: &[u8] = &transaction.sender.clone();
             let arr_receiver: &[u8] = &transaction.receiver.clone();
             let members = [arr_sender,
-                           arr_receiver, 
-                           &transaction.timestamp.to_ne_bytes()];
+                arr_receiver, 
+                &transaction.timestamp.to_ne_bytes()];
             let mut vec: Vec<u8> = members.concat();
-            let coins: Vec<Vec<u8>> = transaction.coins.iter().map(|coin| {
-                                                       coin.as_bytes().to_vec()
-                                                    }).collect();
+            let coins: Vec<Vec<u8>> = transaction.coins
+                .iter()
+                .map(|coin| { coin.as_bytes().to_vec() })
+                .collect();
             for mut i in coins {
                 vec.append(&mut i);
             }
@@ -79,21 +78,17 @@ pub mod wallet {
         }
             
         pub fn submit_transaction(&mut self, receiver: Vec<u8>, amount: usize) 
-                                   -> Result<Transaction, TransactionErr> {
+                    -> Result<Transaction, TransactionErr> {
             self.check_balance(amount)?;
             let coins: Vec<String> = (0..amount).map(|_| {
-                                                         self.coins.pop().unwrap()
-                                                       }).collect();
+                self.coins.pop().unwrap()
+            }).collect();
                                    
-            Ok(
-                self.sign(
-                    Transaction::new(
-                        self.key_pair.public_key().as_ref().to_vec(), 
-                        receiver, 
-                        coins,
-                    )
-                )
-            )
+            Ok(self.sign(Transaction::new(
+                self.key_pair.public_key().as_ref().to_vec(), 
+                receiver, 
+                coins,
+            )))
         }
     }
 
