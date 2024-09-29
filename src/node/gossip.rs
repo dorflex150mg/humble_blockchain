@@ -23,11 +23,19 @@ pub mod gossip {
     pub const MAX_DATAGRAM_SIZE: usize = 65507;
 
 
-    pub async fn greet(address: String, tracker: &str) -> IOResult<Neighbour> {
+    pub async fn greet(address: String, id: Uuid, role: Role, tracker: &str) -> IOResult<Neighbour> {
         println!("Greeting tracker {}", tracker);
-        let socket = UdpSocket::bind(address).await?;
-        //let result = socket.set_read_timeout(Some(Duration::new(TIMEOUT, 0))).unwrap();
-        let buffer: [u8; 1] = [protocol::GREET;1];
+        let socket = UdpSocket::bind(&address).await?;
+        let greeter = Neighbour {
+            id,
+            address,
+            role,
+        };
+        let neighbour_str: String = serde_json::to_string(&greeter).unwrap();
+        let ptcl: Vec<u8> = vec![protocol::GREET];
+        let neighbour_bytes: Vec<u8> = neighbour_str.as_bytes().to_vec();
+        let buffer = [ptcl, neighbour_bytes].concat();
+        //let buffer: [u8; 1] = [protocol::GREET;1];
         socket.send_to(&buffer, tracker).await?;
         let mut buffer: [u8; UUID_LENGTH] = [0; UUID_LENGTH];
         socket.recv_from(&mut buffer).await?;

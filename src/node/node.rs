@@ -133,7 +133,7 @@ pub mod node {
             match &self.trackers {
                 Some(ts) => {
                     for tracker in ts {
-                        match gossip::greet(self.address.clone(), tracker.as_str()).await {
+                        match gossip::greet(self.address.clone(), self.id.clone(), self.role, tracker.as_str()).await {
                             Ok(neighbour) => {
                                 self.neighbours.insert(neighbour.id.clone(), neighbour);
                                 self.initialized = true;
@@ -221,8 +221,8 @@ pub mod node {
             loop {
                 if self.initialized {
                     let (protocol, sender, buffer) = gossip::listen_to_gossip(self.address.clone()).await?;
-                    let res = match protocol { //TODO: deal witn Some replies 
-                        protocol::GREET => self.present_id(sender).await?, 
+                    let res = match protocol { 
+                        protocol::GREET => self.present_id(sender, buffer).await?, 
                         protocol::FAREWELL => self.remove_neigbour(sender).await?,
                         protocol::NEIGHBOUR => self.add_neighbour(buffer).await?,
                         protocol::TRANSACTION => self.add_transaction(buffer).await?,
@@ -249,7 +249,30 @@ pub mod node {
             Ok(())
         }
 
-        pub async fn present_id(&self, sender: String) -> IOResult<Option<Box<dyn Reply>>>{ 
+
+        fn sanitize(string: String) -> String {
+            let mut new_string = String::new();
+            let accepted_chars = " \",:.-{}[]";
+            for i in string.chars() {
+                if i.is_alphanumeric() || accepted_chars.contains(i) {
+                    new_string.push(i);
+                } else {
+                    break;
+                }
+            }
+            new_string
+        }
+
+        pub async fn present_id(&mut self, sender: String, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>>{ 
+            buffer.remove(0);
+            let str_buffer = str::from_utf8(&buffer)
+                .expect("Malformed request to enter network -- Unable to parse").trim();
+            let cleared = Node::sanitize(str_buffer.to_string());
+            let neighbour: Neighbour = serde_json::from_str(&cleared).unwrap(); 
+                //.expect("Malformed neighbour string -- Unable to create neighbour from enter network request");
+            let hash_neighbour = neighbour.clone();
+            self.neighbours.entry(hash_neighbour.id).or_insert(hash_neighbour);
+            self.new_neighbours.push(neighbour);
             gossip::send_id(self.address.clone(), self.id.clone(), sender).await;
             Ok(None)
         }
@@ -267,7 +290,9 @@ pub mod node {
                 .expect("Malformed request to add neighbour -- Unable to parse");
             let neighbour: Neighbour = serde_json::from_str(str_buffer) 
                 .expect("Malformed neighbour string -- Unable to create neighbour from request");
-            self.neighbours.entry(neighbour.id).or_insert(neighbour);
+            let hash_neighbour = neighbour.clone();
+            self.neighbours.entry(hash_neighbour.id).or_insert(hash_neighbour);
+            self.new_neighbours.push(neighbour);
             Ok(None)
         }
 

@@ -6,7 +6,7 @@ pub mod neighbour {
     use thiserror::Error;
     use std::fmt;
 
-    #[derive(Clone, PartialEq)]
+    #[derive(Clone, PartialEq, Copy)]
     pub enum Role {
         Tracker,
         Node,
@@ -53,6 +53,16 @@ pub mod neighbour {
     impl PartialEq for Neighbour {
         fn eq(&self, other: &Self) -> bool {
             self.id == other.id
+        }
+    }
+
+    impl fmt::Debug for Neighbour {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.debug_struct("Neighbour")
+                .field("id", &self.id.to_string())
+                .field("address", &self.address)
+                .field("role", &self.role.to_protocol())
+                .finish()
         }
     }
 
@@ -168,25 +178,32 @@ pub mod neighbour {
                                      return Err(de::Error::duplicate_field("address"));
                                 }
                                 address = Some(map.next_value()?);
+                                println!("address: {}", address.as_ref().unwrap());
                             },
                             Field::Role => {
                                 if role.is_some() {
                                      return Err(de::Error::duplicate_field("role"));
                                 }
-                                role = Some(map.next_value()?);
+                                let raw = map.next_value()?;
+                                role = Some(Role::from_protocol(raw).unwrap());
                             },
                         }
                     }
                     let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
                     let address = address.ok_or_else(|| de::Error::missing_field("address"))?;
                     let role = role.ok_or_else(|| de::Error::missing_field("role"))?;
-                    Ok(Neighbour {
+                    println!("Created neighbour");
+                    let n = Neighbour {
                         id,
                         address,
                         role,
-                    })
+                    };
+                    println!("neighbour: {:?}", &n);
+                    Ok(n)
                 }
             }
+
+            println!("Deserializing");
                             
             const FIELDS: &[&str] = &["id", "address", "role"];
             d.deserialize_struct("Neighbour", FIELDS, NeighbourVisitor)
