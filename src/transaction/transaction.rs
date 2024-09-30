@@ -48,12 +48,13 @@ pub mod transaction {
         type Error = TransactionFromBase64Error;
         fn try_from(string: String) -> Result<Self, Self::Error> {
             let params: Vec<&str> = string.as_str().split(';').collect();
+            let signature = match general_purpose::STANDARD.decode(params[4]).ok();
             Ok(Transaction {
                 sender: general_purpose::STANDARD.decode(params[0])?, 
                 receiver: general_purpose::STANDARD.decode(params[1])?,
                 coins: vec![params[2].to_string().clone()],
                 timestamp: params[3].parse::<u64>()?,
-                signature: Some(general_purpose::STANDARD.decode(params[4])?),
+                signature: Some(signature),
             })
         }
     }
@@ -61,12 +62,21 @@ pub mod transaction {
     impl Into<String> for Transaction {
         fn into(self) -> String {
             let joined_coins = self.coins.join("");
+            let signature = match &self.signatures.unwrap() {
+                Ok(sig) => general_purpose::STANDARD.encode(&self
+                    .signature
+                    .as_ref()
+                    .unwrap()
+                    .as_slice
+                ).to_string();
+                None => None.to_string(); 
+            }
             format!("{};{};{};{};{};", 
                 general_purpose::STANDARD.encode(&self.sender).to_string(), 
                 general_purpose::STANDARD.encode(&self.receiver).to_string(),
                 joined_coins,
                 self.timestamp.to_string(),
-                general_purpose::STANDARD.encode(&self.signature.as_ref().unwrap().as_slice()).to_string()
+                signature,
             )
         }
     }

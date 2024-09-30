@@ -68,6 +68,10 @@ pub mod chain {
             chain
         }
 
+        pub fn len(&self) -> usize {
+            self.len
+        }
+
         fn check_block_data(&self, data: String, previous_hash: &String, block_hash: &String, block_index: usize) 
                 -> Result<(), BlockCheckError> {
             let mut hasher = Sha256::new();

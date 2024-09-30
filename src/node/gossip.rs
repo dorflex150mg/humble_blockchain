@@ -18,7 +18,7 @@ pub mod gossip {
     use tokio::net::UdpSocket;
     use uuid::Uuid;
 
-    pub const GOSSIP_INTERVAL: u64 = 1;
+    pub const GOSSIP_INTERVAL: u64 = 3;
     pub const UUID_LENGTH: usize = 36;
     pub const MAX_DATAGRAM_SIZE: usize = 65507;
 
@@ -103,7 +103,7 @@ pub mod gossip {
     }
 
     pub async fn wait_gossip_interval() {
-        thread::sleep(Duration::new(GOSSIP_INTERVAL, 0));
+        tokio::time::sleep(Duration::new(GOSSIP_INTERVAL, 0)).await;
     }
 
 
