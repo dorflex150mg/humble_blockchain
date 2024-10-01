@@ -22,6 +22,7 @@ mod node {
     pub mod gossip;
     pub mod neighbour;
     pub mod protocol;
+    pub mod receiver;
     pub mod reply;
 }
 

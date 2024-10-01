@@ -14,7 +14,9 @@ pub mod node {
             receiver::receiver::Receiver,
             reply::reply::Reply,
         },
+        transaction::transaction::transaction::TransactionFromBase64Error,
     };
+    use tokio::sync::mpsc::error::TryRecvError;
 
     use std::{
         collections::HashMap,
@@ -103,16 +105,12 @@ pub mod node {
 
     impl Node {
 
-        pub fn new(role: Role, address: String, trackers: Option<Vec<String>>, receiver: Receiver) -> 
-                Result<Self, WrongRoleError> {
-            if trackers == None && role != Role::Tracker {
-                return Err(WrongRoleError::NotTracker);
-            }
+        pub fn new(role: Role, address: String, trackers: Option<Vec<String>>, receiver: Receiver) -> Self {
             let mut transaction_buffer = None;
             if role == Role::Miner {
                 transaction_buffer = Some(vec![]);
             }
-            Ok(Node {
+            Node {
                 id: Uuid::new_v4(),
                 role, 
                 address, 
@@ -124,21 +122,21 @@ pub mod node {
                 initialized: false,
                 trackers,
                 receiver,
-            })
+            }
         }
 
-        async fn receive_transaction(&self) -> Result<Transaction, TransactionRecvError> {
-            let str_transaction = match self.receiver.recv().await?;
-            match str_transaction.try_from() {
+        async fn receive_transaction(&mut self) -> Result<Transaction, TransactionRecvError> {
+            let str_transaction = self.receiver.recv().await?;
+            match Transaction::try_from(str_transaction) {
                 Ok(transaction) => Ok(transaction),
-                Err(e) => panic!("Transaction err: {}", e);
+                Err(e) => panic!("Transaction err: {}", e),
             }
         }
 
 
 
-        pub fn queue_transaction(&self, transaction: Transaction) {
-            self.transaction_buffer.push(transaction);
+        pub fn queue_transaction(&mut self, transaction: Transaction) {
+            self.transaction_buffer.as_mut().unwrap().push(transaction);
         }
 
         pub fn get_n_neighbours(&self) -> usize {
@@ -292,8 +290,8 @@ pub mod node {
                     },
                     None => (),
                 }
-                match self.receiver.receive_transaction() {
-                    Ok(transaction) => self.send_transaction(transaction),
+                match self.receive_transaction().await {
+                    Ok(transaction) => self.submit_transaction(transaction).await,
                     Err(e) => (),
                 }
                
