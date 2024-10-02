@@ -142,13 +142,19 @@ pub mod node {
         pub fn get_n_neighbours(&self) -> usize {
             self.neighbours.len()
         }
+        
+        async fn listen_to_transactions(&mut self) {
+            match self.receive_transaction().await {
+                Ok(transaction) => self.submit_transaction(transaction).await,
+                Err(e) => (),
+            }
+        }
 
         pub async fn init_node(&mut self) -> IOResult<()> {
             loop {
                 self.initialized = true; 
-                println!("{} started listening", self.id);
                 self.listen().await?;
-                println!("{} finished listening", self.id);
+                self.listen_to_transactions().await;
                 self.gossip().await;
             }
             Ok(())
@@ -275,7 +281,6 @@ pub mod node {
                     protocol::CHAIN => self.get_chain(buffer).await?,
                     protocol::POLLCHAIN => self.share_chain().await?, 
                     _ => None//TODO: Ignore with an error
-
                 };
                 match res {
                     Some(mut ptr) => match &mut ptr.as_chain() {
@@ -290,11 +295,6 @@ pub mod node {
                     },
                     None => (),
                 }
-                match self.receive_transaction().await {
-                    Ok(transaction) => self.submit_transaction(transaction).await,
-                    Err(e) => (),
-                }
-               
             }
             Ok(())
         }
