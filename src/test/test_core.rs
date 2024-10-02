@@ -30,13 +30,10 @@ pub mod test_core {
             Err(e) => println!("Failed add block with error: {}", e),
         }
     
-        println!("Miner after block:\n{}", &miner);
-    
         let one_token = miner.wallet.get_coins().pop().unwrap();
         let t1 = Transaction::new(miner.wallet.get_pub_key(), wallet1.get_pub_key(), vec![one_token]);
         let signed_t1 = miner.wallet.sign(t1);
         miner.set_chain_meta(my_chain.get_len(), my_chain.difficulty, my_chain.get_blocks());
-        println!("mining with signed_t1");
         let (newer_block, new_nonce) = match miner.mine(my_chain.get_last_block(), vec![signed_t1]) { // mining with transactions
             Ok((b, n)) => (b, n),
             Err(e) => panic!("Block mining failed: {}", e),
@@ -78,7 +75,6 @@ pub mod test_core {
             let last_block = chain.lock().unwrap().get_last_block();
             let chain_len = chain.lock().unwrap().get_len();
             let difficulty = chain.lock().unwrap().difficulty;
-            println!("miner 1 setting chain meta");
             miner.set_chain_meta(chain_len, difficulty, chain.lock().unwrap().get_blocks());
             let (newer_block, new_nonce) = match miner.mine(last_block, vec![]) {
                 Ok((b, n)) => (b, n),

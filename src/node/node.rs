@@ -4,6 +4,7 @@ pub mod node {
         Wallet,
         Chain,
         Transaction,
+        Miner,
         node::{
             neighbour::neighbour::{
                 Neighbour,
@@ -101,14 +102,17 @@ pub mod node {
         initialized: bool,
         trackers: Option<Vec<String>>,
         receiver: Receiver,
+        miner: Option<Miner>,
     }
 
     impl Node {
 
         pub fn new(role: Role, address: String, trackers: Option<Vec<String>>, receiver: Receiver) -> Self {
             let mut transaction_buffer = None;
+            let mut miner = None;
             if role == Role::Miner {
                 transaction_buffer = Some(vec![]);
+                miner = Some(Miner::new(1, "miner".to_string())); //TODO: generate id and name 
             }
             Node {
                 id: Uuid::new_v4(),
@@ -122,6 +126,7 @@ pub mod node {
                 initialized: false,
                 trackers,
                 receiver,
+                miner,
             }
         }
 
@@ -145,17 +150,40 @@ pub mod node {
         
         async fn listen_to_transactions(&mut self) {
             match self.receive_transaction().await {
-                Ok(transaction) => self.submit_transaction(transaction).await,
+                Ok(transaction) => {
+                    println!("Transaction being received: {}, node: {}", transaction, &self.id);
+                    self.submit_transaction(transaction).await
+                },
                 Err(e) => (),
             }
         }
 
+        fn mine(&mut self) {
+            if self.role == Role::Miner {
+                println!("miner node preparing to mine");
+                self.miner.as_mut().unwrap().set_chain_meta(
+                    self.chain.get_len(),
+                    self.chain.difficulty,
+                    self.chain.get_blocks(),
+                );
+                println!("miner node mining");
+                let (new_block, new_nonce) = self.miner.as_mut().unwrap().mine(
+                    self.chain.get_last_block(), 
+                    self.transaction_buffer.as_mut().unwrap().to_vec(),
+                ).unwrap(); //TODO: Quit mining if chain gets updated for this index
+                println!("mined block: {}", &new_block);
+                self.chain.add_block(new_block, new_nonce);
+            }
+        }
+
         pub async fn init_node(&mut self) -> IOResult<()> {
+            println!("startin loop node: {}", &self.id);
             loop {
                 self.initialized = true; 
                 self.listen().await?;
                 self.listen_to_transactions().await;
                 self.gossip().await;
+                self.mine();
             }
             Ok(())
         }
@@ -205,8 +233,10 @@ pub mod node {
         pub async fn submit_transaction(&self, transaction: Transaction) {
             let _ = self.neighbours
                 .iter()
-                .filter(|neighbour| { neighbour.1.role == Role::Miner })
-                .map(|miner| async { gossip::send_transaction(self.address.clone(), 
+                .filter(|neighbour| { neighbour.1.role == Role::Miner }) //filters miners
+                .map(|miner| async {
+                    gossip::send_transaction(
+                        self.address.clone(), 
                         miner.1.address.clone(), 
                         transaction.clone()).await 
                 })
