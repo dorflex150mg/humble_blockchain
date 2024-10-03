@@ -15,7 +15,10 @@ pub mod gossip {
         thread,
     };
 
-    use tokio::net::UdpSocket;
+    use tokio::{
+        net::UdpSocket,
+        time::timeout,
+    };
     use uuid::Uuid;
 
     pub const GOSSIP_INTERVAL: u64 = 3;
@@ -24,7 +27,6 @@ pub mod gossip {
 
 
     pub async fn greet(address: String, id: Uuid, role: Role, tracker: &str) -> IOResult<Neighbour> {
-        println!("Greeting tracker {}", tracker);
         let socket = UdpSocket::bind(&address).await?;
         let greeter = Neighbour {
             id,
@@ -36,11 +38,18 @@ pub mod gossip {
         let neighbour_bytes: Vec<u8> = neighbour_str.as_bytes().to_vec();
         let buffer = [ptcl, neighbour_bytes].concat();
         //let buffer: [u8; 1] = [protocol::GREET;1];
-        socket.send_to(&buffer, tracker).await?;
-        let mut buffer: [u8; UUID_LENGTH] = [0; UUID_LENGTH];
-        socket.recv_from(&mut buffer).await?;
-        let str_id = str::from_utf8(&buffer).unwrap();
-        println!("Created neighbour");
+        let mut failed = true;
+        let mut buffer_recv: [u8; UUID_LENGTH] = [0; UUID_LENGTH];
+        while failed {
+            socket.send_to(&buffer, tracker).await?;
+            failed = false;
+            if let Err(_) = timeout(Duration::new(1, 0), socket.recv_from(&mut buffer_recv)).await {
+                println!("Retrying recv_from");
+                failed = true;
+            }
+        }
+        let str_id = str::from_utf8(&buffer_recv).unwrap();
+        println!("new neighbour");
         Ok(
             Neighbour {
                 id: Uuid::parse_str(str_id).unwrap(),

@@ -160,13 +160,11 @@ pub mod node {
 
         fn mine(&mut self) {
             if self.role == Role::Miner {
-                println!("miner node preparing to mine");
                 self.miner.as_mut().unwrap().set_chain_meta(
                     self.chain.get_len(),
                     self.chain.difficulty,
                     self.chain.get_blocks(),
                 );
-                println!("miner node mining");
                 let (new_block, new_nonce) = self.miner.as_mut().unwrap().mine(
                     self.chain.get_last_block(), 
                     self.transaction_buffer.as_mut().unwrap().to_vec(),
@@ -177,7 +175,6 @@ pub mod node {
         }
 
         pub async fn init_node(&mut self) -> IOResult<()> {
-            println!("startin loop node: {}", &self.id);
             loop {
                 self.initialized = true; 
                 self.listen().await?;
@@ -196,7 +193,6 @@ pub mod node {
                 
 
         pub async fn enter_network(&mut self) -> Result<(), EnterAttemptError> {
-            println!("{} entering network", self.id);
             match &self.trackers {
                 Some(ts) => {
                     for tracker in ts {
@@ -210,13 +206,15 @@ pub mod node {
                                 self.neighbours.insert(neighbour.id.clone(), neighbour);
                                 self.initialized = true;
                             },
-                            Err(_) => continue,
+                            Err(_) => {
+                                println!("Node {} failed greet", self.id);
+                                continue;
+                            }
                         }
                     }
                     if ! self.initialized {
                         return Err(EnterAttemptError::NoListeners)
                     }
-                    println!("number of neighbours in sender: {}", self.neighbours.len());
                     Ok(())
                 },
                 None => Err(EnterAttemptError::NoTrackers)
@@ -257,9 +255,7 @@ pub mod node {
 
         pub async fn gossip(&mut self) {
             gossip::wait_gossip_interval().await;
-            println!("starting gossip");
             let random_neighbours = self.get_random_neighbours();
-            println!("N random neighbours: {}", &random_neighbours.len()); 
             for neighbour in random_neighbours {
                 if self.chain.get_len() > 0 {
                     let _ = gossip::send_chain(self.address.clone(), 
@@ -332,7 +328,7 @@ pub mod node {
 
         fn sanitize(string: String) -> String {
             let mut new_string = String::new();
-            let accepted_chars = " \",:.-{}[]_";
+            let accepted_chars = " \",;:.-{}[]_=/+";
             for i in string.chars() {
                 if i.is_alphanumeric() || accepted_chars.contains(i) {
                     new_string.push(i);
@@ -354,7 +350,6 @@ pub mod node {
             self.neighbours.entry(hash_neighbour.id).or_insert(hash_neighbour);
             self.new_neighbours.push(neighbour);
             gossip::send_id(self.address.clone(), self.id.clone(), sender).await;
-            println!("Listener n neighbours: {}", self.neighbours.len());
             Ok(None)
         }
 

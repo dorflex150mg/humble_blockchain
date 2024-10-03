@@ -48,10 +48,10 @@ pub mod test_gossip {
         tokio::spawn(async move {
             clone1.lock().await.init_node().await;
         });
-        tokio::time::sleep(Duration::new(1, 0)).await;
         tokio::spawn(async move {
             node2.enter_and_init_node().await;
         });
+        tokio::time::sleep(Duration::new(3, 0)).await;
         let (tx3, mut rx3) = mpsc::channel::<String>(1024);
         let mut node3 = Node::new( 
             Role::Miner, 
@@ -59,6 +59,7 @@ pub mod test_gossip {
             Some(vec!["127.0.0.1:8081".to_owned()]), 
             Receiver::new(rx3),
         );
+        //tokio::time::sleep(Duration::new(3, 0)).await;
         tokio::spawn(async move {
             println!("spawning third node");
             node3.enter_and_init_node().await;
