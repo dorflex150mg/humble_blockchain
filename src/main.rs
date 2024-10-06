@@ -24,6 +24,7 @@ mod node {
     pub mod protocol;
     pub mod receiver;
     pub mod reply;
+    pub mod theme;
 }
 
 mod test {

@@ -9,7 +9,7 @@ pub mod gossip {
     use crate::node::protocol::protocol;
 
     use std::{
-        io::Result as IOResult, 
+        io::{Result as IOResult, Error as IOError},
         time::Duration,
         str,
         thread,
@@ -18,12 +18,23 @@ pub mod gossip {
     use tokio::{
         net::UdpSocket,
         time::timeout,
+        io::ErrorKind,
     };
     use uuid::Uuid;
+    use thiserror::Error;
 
     pub const GOSSIP_INTERVAL: u64 = 3;
     pub const UUID_LENGTH: usize = 36;
     pub const MAX_DATAGRAM_SIZE: usize = 65507;
+
+
+    #[derive(Error, Debug, derive_more::From)]
+    pub enum GossipError {
+        #[error(transparent)]
+        IOError(IOError),
+        #[error("Attempted to read and got would block")]
+        WouldBlock(ErrorKind),
+    }
 
 
     pub async fn greet(address: String, id: Uuid, role: Role, tracker: &str) -> IOResult<Neighbour> {
@@ -89,24 +100,32 @@ pub mod gossip {
     }
 
     pub async fn send_chain(address: String, neighbour: String, chain: Chain) -> IOResult<()> {
-        let socket = UdpSocket::bind(address).await?;
+        println!("preparing");
+        let socket = UdpSocket::bind(address).await?; //TODO: Only send chain to new neighbours
         let str_chain: String = serde_json::to_string(&chain).unwrap();
         let mut buffer: Vec<u8> = vec![protocol::CHAIN];
         let chain_bytes = str_chain.as_bytes().to_vec();
         buffer = [buffer, chain_bytes].concat();
+        println!("sending chain");
         socket.send_to(&buffer, &neighbour).await?;        
+        println!("chain sent");
         Ok(())
     }
 
-    pub async fn send_new_neighbours(address: String, neighbour: String, new_neighbours: Vec<Neighbour>) -> IOResult<()> {
+    pub async fn send_new_neighbours(neighbour_id: Uuid, neighbour_address: String, address: String, new_neighbours: Vec<Neighbour>) 
+            -> IOResult<()> {
         for new_neighbour in new_neighbours {
+            if new_neighbour.id == neighbour_id {
+                continue
+            }
+            println!("Sending to {} neighbour {}", &neighbour_id, &new_neighbour.id);
             let socket = UdpSocket::bind(&address).await?;
             let str_neighbour: String = serde_json::to_string(&new_neighbour).unwrap();
             let mut buffer: Vec<u8> = vec![protocol::NEIGHBOUR];
             let neighbour_bytes = str_neighbour.as_bytes().to_vec();
             buffer = [buffer, neighbour_bytes].concat();
-            socket.send_to(&buffer, &neighbour).await?;        
-
+            let bytes = socket.send_to(&buffer, &neighbour_address).await?;        
+            println!("Sending {} bytes to address {}", bytes, &neighbour_address);
         }
         Ok(())
     }
@@ -116,12 +135,19 @@ pub mod gossip {
     }
 
 
-    pub async fn listen_to_gossip(address: String) -> IOResult<(u8, String, Vec<u8>)> {
+    pub async fn listen_to_gossip(address: String) -> Result<(u8, String, Vec<u8>), GossipError> {
         let socket = UdpSocket::bind(address).await?;
         let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
-        let (_n_bytes, sender) = socket.recv_from(&mut buffer).await?;
+        println!("Trying to recv gossip");
+        let n_bytes: u32 = 0;
+        let sender = String::new();
+        let (n_bytes, sender) = match timeout(Duration::new(1, 0), socket.recv_from(&mut buffer)).await {
+            Ok((n_bytes, sender)) => (n_bytes, sender),
+            Err(e) => return None,
+        }
         let ptcl = buffer[0];
-        Ok((ptcl, sender.to_string(), buffer.to_vec())) //TODO:vec should be only n_bytes long?
+        println!("ptcl: {}", ptcl);
+        Ok(Some((ptcl, sender.to_string(), buffer.to_vec()))) //TODO:vec should be only n_bytes long?
     }
 
     pub async fn send_id(address: String, id: Uuid, sender: String) -> IOResult<()> {

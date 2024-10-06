@@ -46,10 +46,10 @@ pub mod test_gossip {
             Receiver::new(rx2),
         );
         tokio::spawn(async move {
-            clone1.lock().await.init_node().await;
+            clone1.lock().await.node_loop().await;
         });
         tokio::spawn(async move {
-            node2.enter_and_init_node().await;
+            node2.enter_and_node_loop().await;
         });
         tokio::time::sleep(Duration::new(3, 0)).await;
         let (tx3, mut rx3) = mpsc::channel::<String>(1024);
@@ -62,7 +62,7 @@ pub mod test_gossip {
         //tokio::time::sleep(Duration::new(3, 0)).await;
         tokio::spawn(async move {
             println!("spawning third node");
-            node3.enter_and_init_node().await;
+            node3.enter_and_node_loop().await;
         });
         tokio::time::sleep(Duration::new(3, 0)).await; //Waiting for the miner node to be added
         let some_token = "0".repeat(64); //some made up coin token
