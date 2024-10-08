@@ -224,7 +224,8 @@ pub mod node {
                 for tracker in trackers {
                     match gossip::greet(self.address.clone(), self.id.clone(), self.role, tracker).await {
                         Ok(neighbour) => {
-                            self.neighbours.insert(neighbour.id.clone(), neighbour);
+                            self.neighbours.insert(neighbour.id.clone(), neighbour.clone());
+                            self.new_neighbours.push(neighbour);
                             self.initialized = true;
                         }
                         Err(_) => {
@@ -301,9 +302,10 @@ pub mod node {
                         }
                     },
                     Theme::NewNeighbours => {
-                        println!("gossip Theme: Chain");
-                        //println!("{} new neighbours len: {}", self.id, self.new_neighbours.len());
+                        println!("{} gossip Theme: Neighbours", self.id);
+                        println!("{} new neighbours len: {}", self.id, self.new_neighbours.len());
                         if !self.new_neighbours.is_empty() {
+                            println!("{} sending out new neighbours", self.id);
                             let _ = gossip::send_new_neighbours(
                                 neighbour.id.clone(),
                                 neighbour.address.clone(),
@@ -321,7 +323,6 @@ pub mod node {
             let mut neighbours = vec![];
             let mut rng = rand::thread_rng();
             let n = (self.neighbours.len() as f64).sqrt().floor() as usize;
-
             for _ in 0..n {
                 let random_index = rng.gen_range(0..self.neighbours.len());
                 let random_key = self.neighbours.keys().nth(random_index).unwrap();
@@ -338,10 +339,13 @@ pub mod node {
         pub async fn listen(&mut self) -> Result<(), GossipError> {
             println!("{} listening", self.id);
             if self.initialized {
-                let (protocol, sender, buffer) = match gossip::listen_to_gossip(self.address.clone()).await? {
-                    Some((protocol, sender, buffer)) => (protocol, sender, buffer),
-                    None => return Ok(()),
-                }
+                let (protocol, sender, buffer) = match gossip::listen_to_gossip(self.address.clone()).await {
+                    Ok(res) => match res {
+                        Some((protocol, sender, buffer)) => (protocol, sender, buffer),
+                        None => return Ok(()),
+                    }
+                    Err(e) => return Ok(()),
+                };
                 println!("Received protocol: {}", &protocol);
 
                 let res = match protocol {

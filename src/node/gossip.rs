@@ -135,16 +135,19 @@ pub mod gossip {
     }
 
 
-    pub async fn listen_to_gossip(address: String) -> Result<(u8, String, Vec<u8>), GossipError> {
+    pub async fn listen_to_gossip(address: String) -> Result<Option<(u8, String, Vec<u8>)>, GossipError> {
         let socket = UdpSocket::bind(address).await?;
         let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
         println!("Trying to recv gossip");
         let n_bytes: u32 = 0;
         let sender = String::new();
         let (n_bytes, sender) = match timeout(Duration::new(1, 0), socket.recv_from(&mut buffer)).await {
-            Ok((n_bytes, sender)) => (n_bytes, sender),
-            Err(e) => return None,
-        }
+            Ok(res) => match res {
+                Ok((n_bytes, sender)) => (n_bytes, sender),
+                Err(e) => return Ok(None),
+            }
+            Err(e) => return Ok(None),
+        };
         let ptcl = buffer[0];
         println!("ptcl: {}", ptcl);
         Ok(Some((ptcl, sender.to_string(), buffer.to_vec()))) //TODO:vec should be only n_bytes long?
