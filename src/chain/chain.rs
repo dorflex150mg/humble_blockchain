@@ -7,6 +7,7 @@ pub mod chain {
     use std::fmt;
     use serde::{Deserialize, Serialize};
     use sha2::{Digest, Sha256};
+    use tracing::debug;
 
     const INTERVAL: u64 = 60; //difficulty increases if mining a block takes more than 1 minute
     
@@ -91,15 +92,15 @@ pub mod chain {
             if digest_str != *block_hash {
                 Err(BlockCheckError::WrongHash {expected: digest_str, got: block_hash.to_string()})
             } else { 
-                println!("It's alive!!");
+                debug!("It's alive!!");
                 Ok(())
             }
         }
 
         fn check_difficulty(&mut self, block_timestamp: u64) {
             if block_timestamp < self.blocks.iter().last().unwrap().timestamp + INTERVAL { 
-                println!("difficulty just went up");
                 self.difficulty += 1;
+                debug!("Difficulty increased: {}", self.difficulty);
             }
         }
 

@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
+  "env-filter",
+  "fmt",
+  "tracing-log",
+  "json",
+  "tracing",
+] }
 serde = { version = "1.0.210", features = ['derive'] }
 tokio = { version = "1.40.0", features = ["full"] }
 serde_json = "1.0.128"

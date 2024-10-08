@@ -28,6 +28,7 @@ pub mod node {
     use thiserror::Error;
     use rand::prelude::*;
     use uuid::{self, Uuid};
+    use tracing::{debug, info};
 
     // -------------------------------
     // Error Definitions
@@ -156,7 +157,7 @@ pub mod node {
         async fn listen_to_transactions(&mut self) {
             match self.receive_transaction().await {
                 Ok(transaction) => {
-                    println!("Transaction being received: {}, node: {}", transaction, &self.id);
+                    debug!("Transaction being received: {}, node: {}", transaction, &self.id);
                     self.submit_transaction(transaction).await;
                 },
                 Err(_e) => {
@@ -179,7 +180,7 @@ pub mod node {
                         self.transaction_buffer.as_mut().unwrap().to_vec(),
                     ).unwrap(); //TODO: Handle mining abort if the chain gets updated for this index
                     
-                    println!("Mined block: {}", &new_block);
+                    info!("Mined block: {}", &new_block);
                     self.chain.add_block(new_block, new_nonce);
                 }
             }
@@ -191,7 +192,7 @@ pub mod node {
 
         /// Main node loop that listens and processes various activities in the network.
         pub async fn node_loop(&mut self) -> Result<(), GossipError> {
-            println!("{} starting node loop.", self.id);
+            debug!("{} starting node loop.", self.id);
             let mut theme = Theme::Chain;
             loop {
                 let theme_protocol = (theme.to_protocol() + 1) % theme::N_THEMES;
@@ -229,7 +230,7 @@ pub mod node {
                             self.initialized = true;
                         }
                         Err(_) => {
-                            println!("Node {} failed to greet tracker", self.id);
+                            debug!("Node {} failed to greet tracker", self.id);
                             continue;
                         }
                     }
@@ -284,15 +285,15 @@ pub mod node {
         /// Handles the gossiping process with random neighbours, based on the provided theme.
         pub async fn gossip(&mut self, theme: Theme) {
             gossip::wait_gossip_interval().await;
-            println!("{} gossiping to {} neighbours", self.id, self.neighbours.len());
+            debug!("{} gossiping to {} neighbours", self.id, self.neighbours.len());
 
             let random_neighbours = self.get_random_neighbours();
-            println!("{} gossiping to {} random neighbours", self.id, random_neighbours.len());
+            debug!("{} gossiping to {} random neighbours", self.id, random_neighbours.len());
 
             for neighbour in random_neighbours {
                 match theme {
                     Theme::Chain => {
-                        println!("{} gossip Theme: Chain", self.id);
+                        debug!("{} gossip Theme: Chain", self.id);
                         if self.chain.get_len() > 0 {
                             let _ = gossip::send_chain(
                                 self.address.clone(),
@@ -302,10 +303,10 @@ pub mod node {
                         }
                     },
                     Theme::NewNeighbours => {
-                        println!("{} gossip Theme: Neighbours", self.id);
-                        println!("{} new neighbours len: {}", self.id, self.new_neighbours.len());
+                        debug!("{} gossip Theme: Neighbours", self.id);
+                        debug!("{} new neighbours len: {}", self.id, self.new_neighbours.len());
                         if !self.new_neighbours.is_empty() {
-                            println!("{} sending out new neighbours", self.id);
+                            debug!("{} sending out new neighbours", self.id);
                             let _ = gossip::send_new_neighbours(
                                 neighbour.id.clone(),
                                 neighbour.address.clone(),
@@ -337,7 +338,7 @@ pub mod node {
 
         /// Listens for incoming messages and processes them based on the protocol.
         pub async fn listen(&mut self) -> Result<(), GossipError> {
-            println!("{} listening", self.id);
+            debug!("{} listening", self.id);
             if self.initialized {
                 let (protocol, sender, buffer) = match gossip::listen_to_gossip(self.address.clone()).await {
                     Ok(res) => match res {
@@ -346,7 +347,7 @@ pub mod node {
                     }
                     Err(e) => return Ok(()),
                 };
-                println!("Received protocol: {}", &protocol);
+                debug!("Received protocol: {}", &protocol);
 
                 let res = match protocol {
                     protocol::GREET => self.present_id(sender, buffer).await?,
@@ -410,12 +411,12 @@ pub mod node {
 
         /// Adds a neighbour to this node's network from the provided buffer.
         pub async fn add_neighbour(&mut self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>> {
-            println!("Receiving neighbour");
+            debug!("Receiving neighbour");
             buffer.remove(0);
 
             let str_buffer = str::from_utf8(&buffer)
                 .expect("Malformed request to add neighbour -- Unable to parse");
-            println!("Neighbour: {}", str_buffer);
+            debug!("Neighbour: {}", str_buffer);
 
             let cleared = Node::sanitize(str_buffer.to_string());
             let neighbour: Neighbour = serde_json::from_str(&cleared)
