@@ -285,15 +285,10 @@ pub mod node {
         /// Handles the gossiping process with random neighbours, based on the provided theme.
         pub async fn gossip(&mut self, theme: Theme) {
             gossip::wait_gossip_interval().await;
-            debug!("{} gossiping to {} neighbours", self.id, self.neighbours.len());
-
             let random_neighbours = self.get_random_neighbours();
-            debug!("{} gossiping to {} random neighbours", self.id, random_neighbours.len());
-
             for neighbour in random_neighbours {
                 match theme {
                     Theme::Chain => {
-                        debug!("{} gossip Theme: Chain", self.id);
                         if self.chain.get_len() > 0 {
                             let _ = gossip::send_chain(
                                 self.address.clone(),
@@ -303,10 +298,7 @@ pub mod node {
                         }
                     },
                     Theme::NewNeighbours => {
-                        debug!("{} gossip Theme: Neighbours", self.id);
-                        debug!("{} new neighbours len: {}", self.id, self.new_neighbours.len());
                         if !self.new_neighbours.is_empty() {
-                            debug!("{} sending out new neighbours", self.id);
                             let _ = gossip::send_new_neighbours(
                                 neighbour.id.clone(),
                                 neighbour.address.clone(),
@@ -411,12 +403,11 @@ pub mod node {
 
         /// Adds a neighbour to this node's network from the provided buffer.
         pub async fn add_neighbour(&mut self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>> {
-            debug!("Receiving neighbour");
             buffer.remove(0);
 
             let str_buffer = str::from_utf8(&buffer)
                 .expect("Malformed request to add neighbour -- Unable to parse");
-            debug!("Neighbour: {}", str_buffer);
+            debug!("Received neighbour: {}", str_buffer);
 
             let cleared = Node::sanitize(str_buffer.to_string());
             let neighbour: Neighbour = serde_json::from_str(&cleared)

@@ -131,11 +131,7 @@ pub mod gossip {
         let str_chain = serde_json::to_string(&chain).unwrap();
         let mut buffer = vec![protocol::CHAIN];
         buffer.extend_from_slice(&str_chain.as_bytes());
-
-        debug!("Sending chain...");
         socket.send_to(&buffer, &neighbour).await?;
-        debug!("Chain sent");
-
         Ok(())
     }
 
@@ -188,9 +184,12 @@ pub mod gossip {
 
         debug!("Listening for gossip...");
 
-        let (n_bytes, sender) = match timeout(Duration::new(1, 0), socket.recv_from(&mut buffer)).await {
+        let (n_bytes, sender) = match timeout(Duration::new(3, 0), socket.recv_from(&mut buffer)).await {
             Ok(Ok((n_bytes, sender))) => (n_bytes, sender),
-            _ => return Ok(None),
+            _ => {
+                debug!("Got nothing here");
+                return Ok(None);
+            },
         };
 
         let protocol_type = buffer[0];
