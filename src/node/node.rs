@@ -132,12 +132,12 @@ pub mod node {
             }
         }
 
-        /// Receives a transaction from the receiver.
+        /// Receives a transaction.
         async fn receive_transaction(&mut self) -> Result<Transaction, TransactionRecvError> {
             let str_transaction = self.receiver.recv().await?;
             match Transaction::try_from(str_transaction) {
                 Ok(transaction) => Ok(transaction),
-                Err(e) => panic!("Transaction err: {}", e),  // Consider handling this more gracefully
+                Err(e) => Err(TransactionRecvError::TransactionFromBase64Error(e)),  // Consider handling this more gracefully
             }
         }
 
@@ -179,7 +179,6 @@ pub mod node {
                         self.chain.get_last_block(),
                         self.transaction_buffer.as_mut().unwrap().to_vec(),
                     ).unwrap(); //TODO: Handle mining abort if the chain gets updated for this index
-                    
                     info!("Mined block: {}", &new_block);
                     self.chain.add_block(new_block, new_nonce);
                 }

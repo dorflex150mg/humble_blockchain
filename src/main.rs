@@ -47,8 +47,8 @@ use std::sync::{Arc, Mutex};
 async fn main() {
     init_tracing();
 
-    test_gossip::test_gossip().await;
-    //test_core::test_core();
+    //test_gossip::test_gossip().await;
+    test_core::test_core();
 }
 
 pub fn init_tracing() {
