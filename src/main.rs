@@ -27,9 +27,14 @@ mod node {
     pub mod theme;
 }
 
+mod dht {
+    pub mod peer;
+}
+
 mod test {
     pub mod test_core;
     pub mod test_gossip;
+    pub mod test_peer;
 }
 
 use crate::miner::miner::miner::Miner as Miner;
@@ -38,9 +43,8 @@ use crate::wallet::wallet::wallet::Wallet as Wallet;
 use crate::transaction::transaction::transaction::Transaction as Transaction;
 use crate::test::test_core::test_core as test_core;
 use crate::test::test_gossip::test_gossip as test_gossip;
+use crate::test::test_peer::test_peer as test_peer;
 
-use std::thread;
-use std::sync::{Arc, Mutex};
 
 
 #[tokio::main]
@@ -48,7 +52,8 @@ async fn main() {
     init_tracing();
 
     //test_gossip::test_gossip().await;
-    test_core::test_core();
+    //test_core::test_core();
+    test_peer::test_peer();
 }
 
 pub fn init_tracing() {
