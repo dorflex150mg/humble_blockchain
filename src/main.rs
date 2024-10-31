@@ -31,11 +31,17 @@ mod dht {
     pub mod peer;
 }
 
+mod object {
+    pub mod object;
+}
+
 mod test {
     pub mod test_core;
     pub mod test_gossip;
     pub mod test_peer;
 }
+
+
 
 use crate::miner::miner::miner::Miner as Miner;
 use crate::chain::chain::chain::Chain as Chain;
@@ -44,7 +50,6 @@ use crate::transaction::transaction::transaction::Transaction as Transaction;
 use crate::test::test_core::test_core as test_core;
 use crate::test::test_gossip::test_gossip as test_gossip;
 use crate::test::test_peer::test_peer as test_peer;
-
 
 
 #[tokio::main]
