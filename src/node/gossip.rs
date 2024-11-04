@@ -5,6 +5,7 @@ pub mod gossip {
 
     use std::{
         io::{Result as IOResult, Error as IOError},
+        sync::Arc,
         time::Duration,
         str,
     };
@@ -42,9 +43,13 @@ pub mod gossip {
     ///
     /// # Returns
     /// * `IOResult<Neighbour>` - The tracker as a `Neighbour` instance.
-    pub async fn greet(address: String, id: Uuid, role: Role, tracker: &str) -> IOResult<Neighbour> {
-        let socket = UdpSocket::bind(&address).await?;
-        let greeter = Neighbour { id, address, role };
+    pub async fn greet(address: Arc<str>, id: Uuid, role: Role, tracker: &str) -> IOResult<Neighbour> {
+        let socket = UdpSocket::bind(address.as_ref()).await?;
+        let greeter = Neighbour { 
+            id, 
+            address: (*address.clone()).to_owned(), 
+            role 
+        };
         let neighbour_str: String = serde_json::to_string(&greeter).unwrap();
         let mut buffer = vec![protocol::GREET];
         buffer.extend_from_slice(&neighbour_str.as_bytes());
@@ -78,8 +83,8 @@ pub mod gossip {
     /// # Arguments
     /// * `address` - The address to bind the local UDP socket.
     /// * `neighbour` - The address of the neighbour to send the farewell to.
-    pub async fn farewell(address: String, neighbour: String) -> IOResult<()> {
-        let socket = UdpSocket::bind(address).await?;
+    pub async fn farewell(address: Arc<str>, neighbour: String) -> IOResult<()> {
+        let socket = UdpSocket::bind(address.as_ref()).await?;
         let buffer = [protocol::FAREWELL];
         socket.send_to(&buffer, &neighbour).await?;
         Ok(())
@@ -91,8 +96,8 @@ pub mod gossip {
     /// * `address` - The address to bind the local UDP socket.
     /// * `miner` - The address of the miner to send the transaction to.
     /// * `transaction` - The transaction to be sent.
-    pub async fn send_transaction(address: String, miner: String, transaction: Transaction) -> IOResult<()> {
-        let socket = UdpSocket::bind(address).await?;
+    pub async fn send_transaction(address: Arc<str>, miner: String, transaction: Transaction) -> IOResult<()> {
+        let socket = UdpSocket::bind(address.as_ref()).await?;
         let str_transaction: String = transaction.into();
         let mut buffer = vec![protocol::TRANSACTION];
         buffer.extend_from_slice(&str_transaction.as_bytes());
@@ -108,8 +113,8 @@ pub mod gossip {
     ///
     /// # Returns
     /// * `IOResult<Chain>` - The chain received from the neighbour.
-    pub async fn poll_chain(address: String, neighbour: &Neighbour) -> IOResult<Chain> {
-        let socket = UdpSocket::bind(address).await?;
+    pub async fn poll_chain(address: Arc<str>, neighbour: &Neighbour) -> IOResult<Chain> {
+        let socket = UdpSocket::bind(address.as_ref()).await?;
         let buffer = [protocol::POLLCHAIN];
         socket.send_to(&buffer, &neighbour.address).await?;
 
@@ -126,8 +131,8 @@ pub mod gossip {
     /// * `address` - The address to bind the local UDP socket.
     /// * `neighbour` - The address of the neighbour to send the chain to.
     /// * `chain` - The blockchain to be sent.
-    pub async fn send_chain(address: String, neighbour: String, chain: Chain) -> IOResult<()> {
-        let socket = UdpSocket::bind(address).await?;
+    pub async fn send_chain(address: Arc<str>, neighbour: String, chain: Chain) -> IOResult<()> {
+        let socket = UdpSocket::bind(address.as_ref()).await?;
         let str_chain = serde_json::to_string(&chain).unwrap();
         let mut buffer = vec![protocol::CHAIN];
         buffer.extend_from_slice(&str_chain.as_bytes());
@@ -145,7 +150,7 @@ pub mod gossip {
     pub async fn send_new_neighbours(
         neighbour_id: Uuid,
         neighbour_address: String,
-        address: String,
+        address: Arc<str>,
         new_neighbours: Vec<Neighbour>,
     ) -> IOResult<()> {
         for new_neighbour in new_neighbours {
@@ -155,7 +160,7 @@ pub mod gossip {
 
             debug!("Sending neighbour {} to {}", new_neighbour.id, neighbour_id);
 
-            let socket = UdpSocket::bind(&address).await?;
+            let socket = UdpSocket::bind(address.as_ref()).await?;
             let str_neighbour = serde_json::to_string(&new_neighbour).unwrap();
             let mut buffer = vec![protocol::NEIGHBOUR];
             buffer.extend_from_slice(&str_neighbour.as_bytes());
@@ -178,8 +183,8 @@ pub mod gossip {
     ///
     /// # Returns
     /// * `Result<Option<(u8, String, Vec<u8>)>, GossipError>` - The gossip message protocol, sender, and data.
-    pub async fn listen_to_gossip(address: String) -> Result<Option<(u8, String, Vec<u8>)>, GossipError> {
-        let socket = UdpSocket::bind(address).await?;
+    pub async fn listen_to_gossip(address: Arc<str>) -> Result<Option<(u8, String, Vec<u8>)>, GossipError> {
+        let socket = UdpSocket::bind(address.as_ref()).await?;
         let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
 
         debug!("Listening for gossip...");
@@ -204,8 +209,8 @@ pub mod gossip {
     /// * `address` - The address to bind the UDP socket.
     /// * `id` - The UUID to be sent.
     /// * `sender` - The address of the sender to send the UUID to.
-    pub async fn send_id(address: String, id: Uuid, sender: String) -> IOResult<()> {
-        let socket = UdpSocket::bind(address).await?;
+    pub async fn send_id(address: Arc<str>, id: Uuid, sender: String) -> IOResult<()> {
+        let socket = UdpSocket::bind(address.as_ref()).await?;
         let id_str = id.to_string();
         socket.send_to(id_str.as_bytes(), &sender).await?;
         Ok(())

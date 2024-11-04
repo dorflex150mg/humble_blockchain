@@ -1,14 +1,17 @@
 pub mod peer {
 
+    use std::sync::Arc;
     use uuid::Uuid;
     use crate::object::object::object::{self, Object};
+    use crate::node::node::node::Node;
 
     const DEFAULT_START_KEY: &str = "00000000";
     const DEFAULT_END_KEY: &str = "FFFFFFFF";
-    const DEFAULT_ADDRESS: &str = "127.0.0.1";
 
     #[derive(Debug, derive_more::From)]
     pub enum PeerSendError {
+        InvalidNode,
+        TransportError,
     }
 
     #[derive(Debug)]
@@ -17,27 +20,28 @@ pub mod peer {
         Normal,
     }
 
-    #[derive(Debug)]
     pub struct Peer {
         id: Uuid,
-        address: String,
+        node: Node,
         peers: Vec<Peer>,
         peer_type: Type,
-        key_start: String,
-        key_end: String,
+        key_start: Arc<str>,
+        key_end: Arc<str>,
     }
 
 
     impl Peer {
         pub fn new(id: Uuid, 
             peer_type: Type,
-            address: impl Into<String>,
+            node: Node,
             key_start: impl Into<String>,
             key_end: impl Into<String>) -> Self {
+            let key_start = key_start.into();
+            let key_end = key_end.into();
             Peer {
                 id,
+                node,
                 peers: vec![],
-                address: address.into(),
                 peer_type,
                 key_start: key_start.into(),
                 key_end: key_end.into(),
@@ -47,38 +51,45 @@ pub mod peer {
         pub fn send_object(&self, object: Object) -> Result<(), PeerSendError> {
             let hash = object.get_hash_as_integer();
             let mut index = 0;
-            while hash < object::from_string(self.peers[index].key_start.clone()) {
-                index += 1;
+            while hash < object::from_string(self
+                .peers[index]
+                .key_start
+                .clone()
+                .as_ref()) {
+                    index += 1;
             }
-            self.transport_object(object, self.peers[index].address.clone())?;
+            let address = self.peers[index].node.get_address();
+            
+            self.transport_object(object, address)?;
             Ok(())
         }        
 
-        pub fn transport_object(&self, object: Object, address: String) -> Result<(), PeerSendError> {
+        pub fn transport_object(&self, object: Object, address: Arc<str>) -> Result<(), PeerSendError> {
             Ok(())
         }
     }
 
-    impl Default for Peer {
-        fn default() -> Self {
-            Self {
-                id: Uuid::new_v4(),
-                peers: vec![],
-                address: DEFAULT_ADDRESS.to_string(),
-                peer_type: Type::Tracker,
-                key_start: DEFAULT_START_KEY.to_string(),
-                key_end: DEFAULT_END_KEY.to_string(),
-            } 
-        }
-    }
+    //impl Default for Peer {
+    //    fn default() -> Self {
+    //        Self {
+    //            id: Uuid::new_v4(),
+    //            peers: vec![],
+    //            node: Node::default(), 
+    //            peer_type: Type::Tracker,
+    //            key_start: DEFAULT_START_KEY.into(),
+    //            key_end: DEFAULT_END_KEY.into(),
+    //        } 
+    //    }
+    //}
 
     #[derive(Default)]
     pub struct PeerBuilder {
         id: Option<Uuid>,
+        node: Option<Node>,
         peer_type: Option<Type>,
         address: Option<String>,
-        key_start: Option<String>,
-        key_end: Option<String>,
+        key_start: Option<Arc<str>>,
+        key_end: Option<Arc<str>>,
     }
 
         
@@ -103,19 +114,27 @@ pub mod peer {
         }
 
         pub fn with_keys(mut self, key_start: String, key_end: String) -> Self {
-            self.key_start = Some(key_start);
-            self.key_end = Some(key_end);
+            self.key_start = Some(key_start.into());
+            self.key_end = Some(key_end.into());
+            self
+        }
+
+
+        pub fn with_node(mut self, node: Node) -> Self {
+            self.node = Some(node);
             self
         }
 
         pub fn build(self) -> Peer {
+            let this_key_start: Arc<str> = DEFAULT_START_KEY.into();
+            let this_key_end: Arc<str> = DEFAULT_START_KEY.into();
             Peer {
                 id: self.id.unwrap_or(Uuid::new_v4()),
                 peers: vec![],
-                address: self.address.unwrap_or(DEFAULT_ADDRESS.to_string()),
+                node: self.node.unwrap(), 
                 peer_type: self.peer_type.unwrap_or(Type::Tracker),
-                key_start: self.key_start.unwrap_or(DEFAULT_START_KEY.to_string()),
-                key_end: self.key_end.unwrap_or(DEFAULT_END_KEY.to_string()),
+                key_start: self.key_start.unwrap_or(this_key_start),
+                key_end: self.key_end.unwrap_or(this_key_end),
             }
         }
 

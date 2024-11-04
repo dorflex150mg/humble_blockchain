@@ -4,7 +4,7 @@ pub mod test_peer {
 
     pub fn test_peer() {
         
-        let peer1 = Peer::default();
+        //let peer1 = Peer::default();
 
 
     }

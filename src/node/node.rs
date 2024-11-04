@@ -19,9 +19,9 @@ pub mod node {
     use tokio::sync::mpsc::error::TryRecvError;
 
     use std::{
+        sync::Arc,
         collections::HashMap,
         io::{Result as IOResult, Error as IOError},
-        fmt,
         str,
     };
 
@@ -29,6 +29,8 @@ pub mod node {
     use rand::prelude::*;
     use uuid::{self, Uuid};
     use tracing::{debug, info};
+
+    const DEFAULT_ADDRESS: &str = "127.0.0.1";
 
     // -------------------------------
     // Error Definitions
@@ -89,7 +91,7 @@ pub mod node {
     pub struct Node {
         id: Uuid,
         role: Role,
-        address: String,
+        address: Arc<str>,
         transaction_buffer: Option<Vec<Transaction>>,
         wallet: Wallet,
         chain: Chain,
@@ -100,6 +102,26 @@ pub mod node {
         receiver: Receiver,
         miner: Option<Miner>,
     }
+
+    //impl Default for Node{
+    //    fn default() -> Self {
+    //        Self {
+    //            id: Uuid::new_v4(),
+    //            role: Role::Miner, 
+    //            address: DEFAULT_ADDRESS.into(),
+    //            transaction_buffer: None,
+    //            wallet: Wallet::new(),
+    //            chain: Chain::new(),
+    //            neighbours: HashMap::new(),
+    //            new_neighbours: vec![],
+    //            initialized: false,
+    //            trackers: None,
+    //            receiver: None,
+    //            miner: None,
+    //        } 
+    //    }
+    //}
+
 
     // -------------------------------
     // Node Implementation
@@ -115,11 +137,10 @@ pub mod node {
                 transaction_buffer = Some(vec![]);
                 miner = Some(Miner::new(1, "miner".to_string())); //TODO: generate id and name
             }
-
             Node {
                 id: Uuid::new_v4(),
                 role,
-                address,
+                address: address.into(),
                 transaction_buffer,
                 wallet: Wallet::new(),
                 chain: Chain::new(),
@@ -132,10 +153,14 @@ pub mod node {
             }
         }
 
+        pub fn get_address(&self) -> Arc<str> {
+            self.address.clone()
+        }
+
         /// Receives a transaction.
         async fn receive_transaction(&mut self) -> Result<Transaction, TransactionRecvError> {
-            let str_transaction = self.receiver.recv().await?;
-            match Transaction::try_from(str_transaction) {
+            let str_transaction = &self.receiver.recv().await?;
+            match Transaction::try_from(str_transaction.to_owned()) {
                 Ok(transaction) => Ok(transaction),
                 Err(e) => Err(TransactionRecvError::TransactionFromBase64Error(e)),  // Consider handling this more gracefully
             }
@@ -180,7 +205,7 @@ pub mod node {
                         self.transaction_buffer.as_mut().unwrap().to_vec(),
                     ).unwrap(); //TODO: Handle mining abort if the chain gets updated for this index
                     info!("Mined block: {}", &new_block);
-                    self.chain.add_block(new_block, new_nonce);
+                    let _ = self.chain.add_block(new_block, new_nonce);
                 }
             }
         }
@@ -201,14 +226,14 @@ pub mod node {
                     Ok(_) => (),
                     Err(e) => match e {
                         GossipError::IOError(e) => return Err(GossipError::IOError(e)),
-                        GossipError::WouldBlock(e) => (),
+                        GossipError::WouldBlock(_) => (),
                     }
                 }
                 self.listen_to_transactions().await;
                 self.gossip(theme.clone()).await;
                 self.mine();
             }
-            Ok(())
+            //Ok(())
         }
 
         /// Enters the network by contacting trackers and starts the node loop.
