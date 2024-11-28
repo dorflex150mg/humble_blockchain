@@ -41,9 +41,9 @@ pub mod miner {
     }
 
     pub struct Miner {
-        pub id: u64,
-        pub name: String,
-        pub wallet: Wallet,
+        id: u64,
+        name: String,
+        wallet: Wallet,
         pub transactions: Vec<Transaction>,
         pub chain_meta: Option<ChainMeta>,
     }
@@ -59,15 +59,13 @@ pub mod miner {
             }
         }
 
-        pub fn mine(&mut self, mut block: Block, transactions: Vec<Transaction>) 
+        pub fn mine(&mut self, mut block: Block) 
                 -> Result<(Block, u64), MiningError> {
-            self.transactions = self.check_transactions(transactions);
+            self.transactions = self.check_transactions();
             let chain_meta = self.chain_meta.as_ref().ok_or(
                 MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr)
             )?;
-            let mut count = 0;
             loop {
-                count += 1;
                 let mut rng = rand::thread_rng();
                 block.nonce  = rng.gen_range(0..=u64::MAX);
                 let str_digest = block.calculate_hash();
@@ -78,7 +76,7 @@ pub mod miner {
                         vec![str_digest.clone()],
                     );
                     let signed_prize = self.wallet.sign(prize_transaction);
-                    self.transactions.push(signed_prize);
+                    self.transactions.push(signed_prize); //TODO: this should be the 1st tx
                     return Ok((self.create_new_block(str_digest, block.hash.clone()), block.nonce));
                 } else {
                     continue;
@@ -99,13 +97,18 @@ pub mod miner {
         }
 
 
-        pub fn check_transactions(&self, transactions: Vec<Transaction>) -> 
+        pub fn push_transaction(&mut self, transaction: Transaction) {
+            self.transactions.push(transaction);
+        }
+
+
+        pub fn check_transactions(&self) -> 
                 Vec<Transaction>  {
             let chain_meta = self.chain_meta
                 .as_ref()
                 .ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))
                 .unwrap();
-            let filtered: Vec<Transaction> = transactions
+            let filtered: Vec<Transaction> = self.transactions
                 .iter()
                 .filter_map(|transaction| { 
                     block::check_transaction(transaction.clone(), &chain_meta.blocks).ok() 
@@ -117,7 +120,7 @@ pub mod miner {
             let index = self.chain_meta.clone().unwrap().len + 1; 
             let cap = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
             let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
-            let mut encoded_transactions: Vec<String> = capped_transactions.iter().map(|transaction| {
+            let encoded_transactions: Vec<String> = capped_transactions.iter().map(|transaction| {
                 transaction.clone().into()
             }).collect();
             let data = encoded_transactions.join("");

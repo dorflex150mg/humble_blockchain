@@ -5,6 +5,7 @@ pub mod node {
         Chain,
         Transaction,
         Miner,
+        chain::block::block::block::Block,
         node::{
             neighbour::neighbour::{Neighbour, Role},
             gossip::gossip,
@@ -19,7 +20,7 @@ pub mod node {
     use tokio::sync::mpsc::error::TryRecvError;
 
     use std::{
-        sync::Arc,
+        sync::{Arc, Mutex},
         collections::HashMap,
         io::{Result as IOResult, Error as IOError},
         str,
@@ -84,6 +85,11 @@ pub mod node {
     }
 
 
+    pub struct MiningDigest {
+        block: Block,
+        nonce: u64,
+    }
+
     // -------------------------------
     // Node Structure Definition
     // -------------------------------
@@ -99,29 +105,9 @@ pub mod node {
         new_neighbours: Vec<Neighbour>,
         initialized: bool,
         trackers: Option<Vec<String>>,
-        receiver: Receiver,
-        miner: Option<Miner>,
+        receiver: Arc<Mutex<Receiver>>,
+        miner: Option<Arc<Mutex<Miner>>>,
     }
-
-    //impl Default for Node{
-    //    fn default() -> Self {
-    //        Self {
-    //            id: Uuid::new_v4(),
-    //            role: Role::Miner, 
-    //            address: DEFAULT_ADDRESS.into(),
-    //            transaction_buffer: None,
-    //            wallet: Wallet::new(),
-    //            chain: Chain::new(),
-    //            neighbours: HashMap::new(),
-    //            new_neighbours: vec![],
-    //            initialized: false,
-    //            trackers: None,
-    //            receiver: None,
-    //            miner: None,
-    //        } 
-    //    }
-    //}
-
 
     // -------------------------------
     // Node Implementation
@@ -135,7 +121,8 @@ pub mod node {
 
             if role == Role::Miner {
                 transaction_buffer = Some(vec![]);
-                miner = Some(Miner::new(1, "miner".to_string())); //TODO: generate id and name
+
+                miner = Some(Arc::new(Mutex::new(Miner::new(1, "miner".to_string())))); //TODO: generate id and name
             }
             Node {
                 id: Uuid::new_v4(),
@@ -148,7 +135,7 @@ pub mod node {
                 new_neighbours: vec![],
                 initialized: false,
                 trackers,
-                receiver,
+                receiver: Arc::new(Mutex::new(receiver)),
                 miner,
             }
         }
@@ -157,14 +144,6 @@ pub mod node {
             self.address.clone()
         }
 
-        /// Receives a transaction.
-        async fn receive_transaction(&mut self) -> Result<Transaction, TransactionRecvError> {
-            let str_transaction = &self.receiver.recv().await?;
-            match Transaction::try_from(str_transaction.to_owned()) {
-                Ok(transaction) => Ok(transaction),
-                Err(e) => Err(TransactionRecvError::TransactionFromBase64Error(e)),  // Consider handling this more gracefully
-            }
-        }
 
         /// Queues a transaction into the node's transaction buffer.
         pub fn queue_transaction(&mut self, transaction: Transaction) {
@@ -178,37 +157,6 @@ pub mod node {
             self.neighbours.len()
         }
 
-        /// Listens for and processes incoming transactions.
-        async fn listen_to_transactions(&mut self) {
-            match self.receive_transaction().await {
-                Ok(transaction) => {
-                    debug!("Transaction being received: {}, node: {}", transaction, &self.id);
-                    self.submit_transaction(transaction).await;
-                },
-                Err(_e) => {
-                    // Handle error or log it.
-                },
-            }
-        }
-
-        /// Handles mining process if the node is a miner.
-        fn mine(&mut self) {
-            if self.role == Role::Miner {
-                if let Some(miner) = &mut self.miner {
-                    miner.set_chain_meta(
-                        self.chain.get_len(),
-                        self.chain.difficulty,
-                        self.chain.get_blocks(),
-                    );
-                    let (new_block, new_nonce) = miner.mine(
-                        self.chain.get_last_block(),
-                        self.transaction_buffer.as_mut().unwrap().to_vec(),
-                    ).unwrap(); //TODO: Handle mining abort if the chain gets updated for this index
-                    info!("Mined block: {}", &new_block);
-                    let _ = self.chain.add_block(new_block, new_nonce);
-                }
-            }
-        }
 
         // -------------------------------
         // Network Operations
@@ -219,22 +167,29 @@ pub mod node {
             debug!("{} starting node loop.", self.id);
             let mut theme = Theme::Chain;
             loop {
-                let theme_protocol = (theme.to_protocol() + 1) % theme::N_THEMES;
+                let theme_protocol = (theme.to_protocol() + 1) % theme::N_THEMES; //TODO: Fix this.
+                                                                                  //Jesus Christ.
                 theme = Theme::from_protocol(theme_protocol).unwrap();
                 self.initialized = true;
-                match self.listen().await {
-                    Ok(_) => (),
-                    Err(e) => match e {
-                        GossipError::IOError(e) => return Err(GossipError::IOError(e)),
-                        GossipError::WouldBlock(_) => (),
-                    }
-                }
-                self.listen_to_transactions().await;
-                self.gossip(theme.clone()).await;
-                self.mine();
+                let chain = self.chain.clone();
+                let chain_gossip = self.chain.clone();
+                let role = self.role.clone();
+                let miner_clone = self.miner.as_mut().unwrap().clone();
+                let receiver_clone = self.receiver.clone();
+                let neighbours = self.neighbours.clone();
+                let address = self.address.clone();
+                let address_gossip = self.address.clone();
+                let random_neighbours = self.get_random_neighbours();
+                let new_neighbours = self.new_neighbours.clone();
+                tokio::join!(
+                    self.listen_to_peers(),
+                    gossip(address_gossip, chain_gossip, random_neighbours, new_neighbours, theme.clone()),
+                    listen_to_transactions(receiver_clone, neighbours, address),
+                    mine(role, miner_clone, chain), //TODO: Should have to unwrap
+                );
             }
-            //Ok(())
         }
+
 
         /// Enters the network by contacting trackers and starts the node loop.
         pub async fn enter_and_node_loop(&mut self) -> Result<(), NodeLoopError> {
@@ -279,18 +234,6 @@ pub mod node {
         // Transaction and Chain Operations
         // -------------------------------
 
-        /// Submits a transaction to all miner neighbours.
-        pub async fn submit_transaction(&self, transaction: Transaction) {
-            let _ = self.neighbours
-                .iter()
-                .filter(|neighbour| neighbour.1.role == Role::Miner) // Filters only miners
-                .map(|miner| async {
-                    gossip::send_transaction(self.address.clone(), miner.1.address.clone(), transaction.clone()).await
-                })
-                .collect::<Vec<_>>();
-        }
-
-        /// Updates the chain by polling neighbours for the latest chain.
         pub async fn update_chain(&self) -> Result<Chain, UpdateChainError> {
             let mut cursor = self.neighbours.iter();
             while let Some((_id, neighbour)) = cursor.next() {
@@ -306,36 +249,6 @@ pub mod node {
         // Gossip and Neighbor Management
         // -------------------------------
 
-        /// Handles the gossiping process with random neighbours, based on the provided theme.
-        pub async fn gossip(&mut self, theme: Theme) {
-            gossip::wait_gossip_interval().await;
-            let random_neighbours = self.get_random_neighbours();
-            for neighbour in random_neighbours {
-                match theme {
-                    Theme::Chain => {
-                        if self.chain.get_len() > 0 {
-                            let _ = gossip::send_chain(
-                                self.address.clone(),
-                                neighbour.address.clone(),
-                                self.chain.clone()
-                            ).await;
-                        }
-                    },
-                    Theme::NewNeighbours => {
-                        if !self.new_neighbours.is_empty() {
-                            let _ = gossip::send_new_neighbours(
-                                neighbour.id.clone(),
-                                neighbour.address.clone(),
-                                self.address.clone(),
-                                self.new_neighbours.clone()
-                            ).await;
-                        }
-                    },
-                }
-            }
-        }
-
-        /// Returns a random subset of neighbours for gossiping.
         fn get_random_neighbours(&self) -> Vec<Neighbour> {
             let mut neighbours = vec![];
             let mut rng = rand::thread_rng();
@@ -353,7 +266,7 @@ pub mod node {
         // -------------------------------
 
         /// Listens for incoming messages and processes them based on the protocol.
-        pub async fn listen(&mut self) -> Result<(), GossipError> {
+        pub async fn listen_to_peers(&mut self) -> Result<(), GossipError> {
             debug!("{} listening", self.id);
             if self.initialized {
                 let (protocol, sender, buffer) = match gossip::listen_to_gossip(self.address.clone()).await {
@@ -379,8 +292,8 @@ pub mod node {
                     if let Some(chain) = ptr.as_chain() {
                         self.check_chain(chain.clone());
                     } else if let Some(transaction) = ptr.as_transaction() {
-                        if let Some(buffer) = &mut self.transaction_buffer {
-                            buffer.push(transaction.clone());
+                        if let Some(miner) = &mut self.miner {
+                            miner.lock().unwrap().push_transaction(transaction.clone());
                         }
                     }
                 }
@@ -498,5 +411,104 @@ pub mod node {
                 .collect()
         }
     }
-}
 
+    /// Handles mining process if the node is a miner.
+    async fn mine(role: Role, miner: Arc<Mutex<Miner>>, chain: Chain) -> Option<MiningDigest> {
+        let mut inner_miner = miner.lock().unwrap();
+        if role == Role::Miner {
+            inner_miner.set_chain_meta(
+                chain.get_len(),
+                chain.difficulty,
+                chain.get_blocks(),
+            );
+            let (block, nonce) = inner_miner.mine(
+                chain.get_last_block(),
+            ).unwrap(); //TODO: Handle mining abort if the chain gets updated for this index
+            info!("Mined block: {}", block);
+            return Some(MiningDigest {
+                block,
+                nonce,
+            });
+            
+            //let _ = self.chain.add_block(new_block, new_nonce);
+        }
+        None
+    }
+
+   /// Submits a transaction to all miner neighbours.
+    pub async fn submit_transaction(
+        transaction: Transaction, 
+        neighbours: HashMap<Uuid, Neighbour>, 
+        address: Arc<str>
+    ) {
+        let _ = neighbours
+            .iter()
+            .filter(|neighbour| neighbour.1.role == Role::Miner) // Filters only miners
+            .map(|miner| async {
+                gossip::send_transaction(address.clone(), miner.1.address.clone(), transaction.clone()).await
+            })
+            .collect::<Vec<_>>();
+    }
+
+        /// Updates the chain by polling neighbours for the latest chain.
+    /// Listens for and processes incoming transactions.
+    async fn listen_to_transactions(
+        receiver: Arc<Mutex<Receiver>>, 
+        neighbours: HashMap<Uuid, Neighbour>,
+        address: Arc<str>,
+    ) {
+        match receive_transaction(receiver).await {
+            Ok(transaction) => {
+                debug!("Transaction being received: {}", transaction);
+                submit_transaction(transaction, neighbours, address).await;
+            },
+            Err(_e) => {
+                // Handle error or log it.
+            },
+        }
+    }
+        /// Handles the gossiping process with random neighbours, based on the provided theme.
+    pub async fn gossip(
+        address: Arc<str>, 
+        chain: Chain, 
+        random_neighbours: Vec<Neighbour>, 
+        new_neighbours: Vec<Neighbour>,
+        theme: Theme
+    ) {
+        gossip::wait_gossip_interval().await;
+        for neighbour in random_neighbours {
+            match theme {
+                Theme::Chain => {
+                    if chain.get_len() > 0 {
+                        let _ = gossip::send_chain(
+                            address.clone(),
+                            neighbour.address.clone(),
+                            chain.clone() //TODO: Shouldn't have to clone eveyt time.
+                        ).await;
+                    }
+                },
+                Theme::NewNeighbours => {
+                    if !new_neighbours.is_empty() {
+                        let _ = gossip::send_new_neighbours(
+                            neighbour.id.clone(),
+                            neighbour.address.clone(),
+                            address.clone(),
+                            new_neighbours.clone()
+                        ).await;
+                    }
+                },
+            }
+        }
+    }
+
+        /// Returns a random subset of neighbours for gossiping.
+
+   /// Receives a transaction.
+   async fn receive_transaction(receiver: Arc<Mutex<Receiver>>) -> Result<Transaction, TransactionRecvError> {
+       let str_transaction = receiver.lock().unwrap().recv().await?;
+       match Transaction::try_from(str_transaction.to_owned()) {
+           Ok(transaction) => Ok(transaction),
+           Err(e) => Err(TransactionRecvError::TransactionFromBase64Error(e)),  // Consider handling this more gracefully
+       }
+   }
+}

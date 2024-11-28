@@ -29,7 +29,7 @@ pub mod gossip {
     pub enum GossipError {
         #[error(transparent)]
         IOError(IOError),
-        #[error("Attempted to read and got would block")]
+        #[error("Attempted to read and got would block.")]
         WouldBlock(ErrorKind),
     }
 
