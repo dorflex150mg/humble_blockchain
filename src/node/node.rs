@@ -17,10 +17,15 @@ pub mod node {
         },
         transaction::transaction::transaction::TransactionFromBase64Error,
     };
-    use tokio::sync::mpsc::error::TryRecvError;
+    use tokio::sync::{
+        mpsc::error::TryRecvError,
+        Mutex,
+    };
+
+
 
     use std::{
-        sync::{Arc, Mutex},
+        sync::{Arc},
         collections::HashMap,
         io::{Result as IOResult, Error as IOError},
         str,
@@ -265,6 +270,8 @@ pub mod node {
         // Listening and Chain Validation
         // -------------------------------
 
+
+
         /// Listens for incoming messages and processes them based on the protocol.
         pub async fn listen_to_peers(&mut self) -> Result<(), GossipError> {
             debug!("{} listening", self.id);
@@ -288,15 +295,18 @@ pub mod node {
                     _ => None, // Ignore unrecognized protocol with no error
                 };
 
+                let mut outter_transaction: Option<Transaction> = None;
                 if let Some(mut ptr) = res {
                     if let Some(chain) = ptr.as_chain() {
                         self.check_chain(chain.clone());
                     } else if let Some(transaction) = ptr.as_transaction() {
                         if let Some(miner) = &mut self.miner {
-                            miner.lock().unwrap().push_transaction(transaction.clone());
+                            //push_transaction(miner, transaction.clone()).await;
+                            outter_transaction = Some(transaction.clone());
                         }
                     }
                 }
+                
             }
             Ok(())
         }
@@ -414,7 +424,7 @@ pub mod node {
 
     /// Handles mining process if the node is a miner.
     async fn mine(role: Role, miner: Arc<Mutex<Miner>>, chain: Chain) -> Option<MiningDigest> {
-        let mut inner_miner = miner.lock().unwrap();
+        let mut inner_miner = miner.lock().await;
         if role == Role::Miner {
             inner_miner.set_chain_meta(
                 chain.get_len(),
@@ -501,14 +511,29 @@ pub mod node {
         }
     }
 
+    //fn lock_receiver(receiver: Arc<Mutex<Receiver>>) -> String {
+    //    receiver.lock().unwrap();
+    //    inner_receiver.recv();
+
         /// Returns a random subset of neighbours for gossiping.
 
-   /// Receives a transaction.
-   async fn receive_transaction(receiver: Arc<Mutex<Receiver>>) -> Result<Transaction, TransactionRecvError> {
-       let str_transaction = receiver.lock().unwrap().recv().await?;
+    /// Receives a transaction.
+    async fn receive_transaction(receiver: Arc<Mutex<Receiver>>) 
+            -> Result<Transaction, TransactionRecvError> {
+        let mut inner_receiver = receiver.lock().await;
+        let str_transaction = {
+           inner_receiver.recv().await?
+        };
+
+       //let str_transaction = receiver.lock().unwrap().recv().await?;
        match Transaction::try_from(str_transaction.to_owned()) {
            Ok(transaction) => Ok(transaction),
            Err(e) => Err(TransactionRecvError::TransactionFromBase64Error(e)),  // Consider handling this more gracefully
        }
    }
+
+    async fn push_transaction(miner: &mut Arc<Mutex<Miner>>, transaction: Transaction) {
+        let mut inner = miner.lock().await;
+        inner.push_transaction(transaction);
+    }
 }

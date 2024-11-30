@@ -43,10 +43,11 @@ pub mod miner {
     pub struct Miner {
         id: u64,
         name: String,
-        wallet: Wallet,
+        pub wallet: Wallet,
         pub transactions: Vec<Transaction>,
         pub chain_meta: Option<ChainMeta>,
     }
+
     
     impl Miner {
         pub fn new(id: u64, name: String) -> Self {
@@ -57,6 +58,10 @@ pub mod miner {
                 transactions: vec![],
                 chain_meta: None,
             }
+        }
+
+        pub fn get_name(&self) -> String {
+            self.name.clone()
         }
 
         pub fn mine(&mut self, mut block: Block) 
