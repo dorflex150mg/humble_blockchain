@@ -276,37 +276,47 @@ pub mod node {
         pub async fn listen_to_peers(&mut self) -> Result<(), GossipError> {
             debug!("{} listening", self.id);
             if self.initialized {
-                let (protocol, sender, buffer) = match gossip::listen_to_gossip(self.address.clone()).await {
+                let (protocol, sender, buffer) = 
+                    match gossip::listen_to_gossip(self.address.clone()).await {
                     Ok(res) => match res {
                         Some((protocol, sender, buffer)) => (protocol, sender, buffer),
                         None => return Ok(()),
                     }
-                    Err(e) => return Ok(()),
+                    Err(_) => return Ok(()),
                 };
                 debug!("Received protocol: {}", &protocol);
 
-                let res = match protocol {
-                    protocol::GREET => self.present_id(sender, buffer).await?,
-                    protocol::FAREWELL => self.remove_neighbour(sender).await?,
-                    protocol::NEIGHBOUR => self.add_neighbour(buffer).await?,
-                    protocol::TRANSACTION => self.add_transaction(buffer).await?,
-                    protocol::CHAIN => self.get_chain(buffer).await?,
-                    protocol::POLLCHAIN => self.share_chain().await?,
-                    _ => None, // Ignore unrecognized protocol with no error
-                };
-
                 let mut outter_transaction: Option<Transaction> = None;
-                if let Some(mut ptr) = res {
-                    if let Some(chain) = ptr.as_chain() {
-                        self.check_chain(chain.clone());
-                    } else if let Some(transaction) = ptr.as_transaction() {
-                        if let Some(miner) = &mut self.miner {
-                            //push_transaction(miner, transaction.clone()).await;
-                            outter_transaction = Some(transaction.clone());
+                {
+                    let res = match protocol {
+                        protocol::GREET => self.present_id(sender, buffer).await?,
+                        protocol::FAREWELL => self.remove_neighbour(sender).await?,
+                        protocol::NEIGHBOUR => self.add_neighbour(buffer).await?,
+                        protocol::TRANSACTION => self.add_transaction(buffer).await?,
+                        protocol::CHAIN => self.get_chain(buffer).await?,
+                        protocol::POLLCHAIN => self.share_chain().await?,
+                        _ => None, // Ignore unrecognized protocol with no error
+                    };
+
+                    if let Some(mut ptr) = res {
+                        if let Some(chain) = ptr.as_chain() {
+                            self.check_chain(chain.clone());
+                        } else if let Some(transaction) = ptr.as_transaction() {
+                            if let Some(_) = &mut self.miner {
+                                //push_transaction(miner, transaction.clone()).await;
+                                outter_transaction = Some(transaction.clone());
+                            }
                         }
                     }
                 }
-                
+                match outter_transaction {
+                    Some(t) => {
+                        if let Some(miner) = &mut self.miner {
+                            push_transaction(miner, t.clone()).await;
+                        }
+                    },
+                    None => (),
+                }
             }
             Ok(())
         }
