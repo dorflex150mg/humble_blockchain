@@ -24,6 +24,28 @@ pub mod miner {
         pub blocks: Vec<Block>,
     }
 
+    pub struct MiningDigest {
+        block: Block,
+        nonce: u64,
+    }
+
+    impl MiningDigest {
+        pub fn new(block: Block, nonce: u64) -> Self {
+            MiningDigest {
+                block,
+                nonce,
+            }
+        }
+
+        pub fn get_block(&self) -> Block {
+            self.block.clone()
+        }
+
+        pub fn get_nonce(&self) -> u64 {
+            self.nonce
+        }
+    }
+
     #[derive(Error, Debug, derive_more::From, derive_more::Display)]    
     pub enum MiningError {
         InvalidTransactionErr(InvalidTransactionErr),
@@ -65,7 +87,7 @@ pub mod miner {
         }
 
         pub fn mine(&mut self, mut block: Block) 
-                -> Result<(Block, u64), MiningError> {
+                -> Result<MiningDigest, MiningError> {
             self.transactions = self.check_transactions();
             let chain_meta = self.chain_meta.as_ref().ok_or(
                 MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr)
@@ -82,7 +104,12 @@ pub mod miner {
                     );
                     let signed_prize = self.wallet.sign(prize_transaction);
                     self.transactions.push(signed_prize); //TODO: this should be the 1st tx
-                    return Ok((self.create_new_block(str_digest, block.hash.clone()), block.nonce));
+                    return Ok(
+                        MiningDigest::new(
+                            self.create_new_block(str_digest, block.hash.clone()), 
+                            block.nonce,
+                        )
+                    );
                 } else {
                     continue;
                 }

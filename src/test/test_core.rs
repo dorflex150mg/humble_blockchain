@@ -31,17 +31,17 @@ pub mod test_core {
         let last_block = my_chain.get_last_block();
         miner1.set_chain_meta(my_chain.get_len(), my_chain.difficulty, my_chain.get_blocks());
 
-        let (new_block, nonce) = match miner1.mine(last_block) {
-            Ok((b, n)) => (b, n),
+        let mining_digest = match miner1.mine(last_block) {
+            Ok(m) => m,
             Err(e) => panic!("Block mining failed: {}", e),
         };
 
         // Log details about the mined block
-        info!("Block mined by {}: {}", miner1.get_name(), new_block);
-        info!("New block data: {:?}", new_block.data);
+        info!("Block mined by {}: {}", miner1.get_name(), mining_digest.get_block());
+        info!("New block data: {:?}", mining_digest.get_block().data);
 
         // Add the new block to the chain
-        if let Err(e) = my_chain.add_block(new_block, nonce) {
+        if let Err(e) = my_chain.add_block(mining_digest) {
             info!("Failed to add block: {}", e);
         }
 
@@ -55,16 +55,16 @@ pub mod test_core {
 
         miner1.push_transaction(signed_t1);
 
-        let (newer_block, new_nonce) = match miner1.mine(my_chain.get_last_block()) {
-            Ok((b, n)) => (b, n),
+        let new_mining_digest = match miner1.mine(my_chain.get_last_block()) {
+            Ok(m) => m,
             Err(e) => panic!("Block mining failed: {}", e),
         };
 
         // Log the newly mined block with the transaction
-        info!("Block mined by {}: {}", miner1.get_name(), &newer_block);
+        info!("Block mined by {}: {}", miner1.get_name(), new_mining_digest.get_block());
 
         // Add the new block with transactions to the chain
-        if let Err(e) = my_chain.add_block(newer_block, new_nonce) {
+        if let Err(e) = my_chain.add_block(new_mining_digest) {
             info!("Failed to add block: {}", e);
         }
 
@@ -89,14 +89,14 @@ pub mod test_core {
                 // Update miner2 with the latest chain metadata and mine a block
                 miner2.set_chain_meta(chain_len, difficulty, chain.get_blocks());
 
-                let (new_block, nonce) = match miner2.mine(last_block) {
-                    Ok((b, n)) => (b, n),
+                let mining_digest = match miner2.mine(last_block) {
+                    Ok(m) => m,
                     Err(e) => panic!("Block mining failed: {}", e),
                 };
 
                 // Log and add the mined block to the chain
-                info!("Block mined by {}: {}", miner2.get_name(), &new_block);
-                if let Err(e) = chain.add_block(new_block, nonce) {
+                info!("Block mined by {}: {}", miner2.get_name(), mining_digest.get_block());
+                if let Err(e) = chain.add_block(mining_digest) {
                     info!("Failed to add block: {}", e);
                 }
             }
@@ -114,14 +114,14 @@ pub mod test_core {
             // Update miner1 with the latest chain metadata and mine a block
             miner1.set_chain_meta(chain_len, difficulty, chain.lock().unwrap().get_blocks());
 
-            let (new_block, nonce) = match miner1.mine(last_block) {
-                Ok((b, n)) => (b, n),
+            let mining_digest = match miner1.mine(last_block) {
+                Ok(m) => m,
                 Err(e) => panic!("Block mining failed: {}", e),
             };
 
             // Log and add the mined block to the chain
-            info!("Block mined by {}: {}", miner1.get_name(), &new_block);
-            if let Err(e) = chain.lock().unwrap().add_block(new_block, nonce) {
+            info!("Block mined by {}: {}", miner1.get_name(), mining_digest.get_block());
+            if let Err(e) = chain.lock().unwrap().add_block(mining_digest) {
                 info!("Failed to add block: {}", e);
             };
         };

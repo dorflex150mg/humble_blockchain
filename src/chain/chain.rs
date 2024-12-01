@@ -1,6 +1,7 @@
 pub mod chain {
 
-    use crate::chain::block::{block::block::Block};
+    use crate::chain::block::block::block::Block;
+    use crate::miner::miner::miner::MiningDigest;
     use crate::node::reply::reply::Reply;
     use crate::Transaction;
 
@@ -65,7 +66,8 @@ pub mod chain {
                 len: 0,
                 difficulty: 1,
             };
-            chain.add_block(genesis_block, 0).unwrap();
+            let genesis_mining_digest = MiningDigest::new(genesis_block, 0);
+            chain.add_block(genesis_mining_digest).unwrap();
             chain
         }
 
@@ -143,7 +145,9 @@ pub mod chain {
         ///
         /// # Returns
         /// A `Result` which is `Ok` if the block is added successfully or contains a `BlockCheckError` if the block is invalid.
-        pub fn add_block(&mut self, block: Block, nonce: u64) -> Result<(), BlockCheckError> {
+        pub fn add_block(&mut self, mining_digest: MiningDigest) -> Result<(), BlockCheckError> {
+            let block = mining_digest.get_block();
+            let nonce = mining_digest.get_nonce();
             if block.index != 0 {
                 let last_block = self.blocks.iter().last().clone().unwrap();
                 let str_block = format!("{}{}{}{}{}{}",  

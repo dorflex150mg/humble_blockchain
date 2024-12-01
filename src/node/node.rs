@@ -90,11 +90,6 @@ pub mod node {
     }
 
 
-    pub struct MiningDigest {
-        block: Block,
-        nonce: u64,
-    }
-
     // -------------------------------
     // Node Structure Definition
     // -------------------------------
@@ -275,48 +270,41 @@ pub mod node {
         /// Listens for incoming messages and processes them based on the protocol.
         pub async fn listen_to_peers(&mut self) -> Result<(), GossipError> {
             debug!("{} listening", self.id);
-            if self.initialized {
-                let (protocol, sender, buffer) = 
-                    match gossip::listen_to_gossip(self.address.clone()).await {
-                    Ok(res) => match res {
-                        Some((protocol, sender, buffer)) => (protocol, sender, buffer),
-                        None => return Ok(()),
-                    }
-                    Err(_) => return Ok(()),
+            let (protocol, sender, buffer) = 
+                match gossip::listen_to_gossip(self.address.clone()).await {
+                Ok(res) => match res {
+                    Some((protocol, sender, buffer)) => (protocol, sender, buffer),
+                    None => return Ok(()),
+                }
+                Err(_) => return Ok(()),
+            };
+            debug!("Received protocol: {}", &protocol);
+
+            let mut outter_transaction: Option<Transaction> = None;
+            {
+                let res = match protocol {
+                    protocol::GREET => self.present_id(sender, buffer).await?,
+                    protocol::FAREWELL => self.remove_neighbour(sender).await?,
+                    protocol::NEIGHBOUR => self.add_neighbour(buffer).await?,
+                    protocol::TRANSACTION => self.add_transaction(buffer).await?,
+                    protocol::CHAIN => self.get_chain(buffer).await?,
+                    protocol::POLLCHAIN => self.share_chain().await?,
+                    _ => None, // Ignore unrecognized protocol with no error
                 };
-                debug!("Received protocol: {}", &protocol);
 
-                let mut outter_transaction: Option<Transaction> = None;
-                {
-                    let res = match protocol {
-                        protocol::GREET => self.present_id(sender, buffer).await?,
-                        protocol::FAREWELL => self.remove_neighbour(sender).await?,
-                        protocol::NEIGHBOUR => self.add_neighbour(buffer).await?,
-                        protocol::TRANSACTION => self.add_transaction(buffer).await?,
-                        protocol::CHAIN => self.get_chain(buffer).await?,
-                        protocol::POLLCHAIN => self.share_chain().await?,
-                        _ => None, // Ignore unrecognized protocol with no error
-                    };
-
-                    if let Some(mut ptr) = res {
-                        if let Some(chain) = ptr.as_chain() {
-                            self.check_chain(chain.clone());
-                        } else if let Some(transaction) = ptr.as_transaction() {
-                            if let Some(_) = &mut self.miner {
-                                //push_transaction(miner, transaction.clone()).await;
-                                outter_transaction = Some(transaction.clone());
-                            }
+                if let Some(mut ptr) = res {
+                    if let Some(chain) = ptr.as_chain() {
+                        self.check_chain(chain.clone());
+                    } else if let Some(transaction) = ptr.as_transaction() {
+                        if let Some(_) = &mut self.miner {
+                            outter_transaction = Some(transaction.clone());
                         }
                     }
                 }
-                match outter_transaction {
-                    Some(t) => {
-                        if let Some(miner) = &mut self.miner {
-                            push_transaction(miner, t.clone()).await;
-                        }
-                    },
-                    None => (),
-                }
+            }
+            match outter_transaction {
+                Some(t) => push_transaction(self.miner.as_mut().unwrap(), t.clone()).await,
+                None => (),
             }
             Ok(())
         }
@@ -441,16 +429,11 @@ pub mod node {
                 chain.difficulty,
                 chain.get_blocks(),
             );
-            let (block, nonce) = inner_miner.mine(
+            let mining_digest = inner_miner.mine(
                 chain.get_last_block(),
             ).unwrap(); //TODO: Handle mining abort if the chain gets updated for this index
-            info!("Mined block: {}", block);
-            return Some(MiningDigest {
-                block,
-                nonce,
-            });
-            
-            //let _ = self.chain.add_block(new_block, new_nonce);
+            info!("Mined block: {}", mining_digest.get_block());
+            let _ = chain.add_block(mining_digest);
         }
         None
     }
