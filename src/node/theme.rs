@@ -18,13 +18,22 @@ pub mod theme {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Copy)]
     pub enum Theme {
         Chain,
         NewNeighbours,
     }
 
     impl Theme {
+
+        pub fn next(&mut self) {
+            *self = match *self {
+                Theme::Chain => Theme::NewNeighbours,
+                Theme::NewNeighbours => Theme::NewNeighbours,
+            }
+        }
+
+            
         
         pub fn to_protocol(&self) -> usize {
             match self {

@@ -33,6 +33,12 @@ pub mod gossip {
         WouldBlock(ErrorKind),
     }
 
+    pub struct GossipReply {
+        pub protocol: u8,
+        pub sender: String,
+        pub buffer: Vec<u8>,
+    }
+
     /// Sends a greeting message to a tracker to introduce a new neighbour.
     ///
     /// # Arguments
@@ -183,7 +189,7 @@ pub mod gossip {
     ///
     /// # Returns
     /// * `Result<Option<(u8, String, Vec<u8>)>, GossipError>` - The gossip message protocol, sender, and data.
-    pub async fn listen_to_gossip(address: Arc<str>) -> Result<Option<(u8, String, Vec<u8>)>, GossipError> {
+    pub async fn listen_to_gossip(address: Arc<str>) -> Result<Option<GossipReply>, GossipError> {
         let socket = UdpSocket::bind(address.as_ref()).await?;
         let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
 
@@ -199,8 +205,12 @@ pub mod gossip {
 
         let protocol_type = buffer[0];
         debug!("Received protocol: {}", protocol_type);
-
-        Ok(Some((protocol_type, sender.to_string(), buffer[..n_bytes].to_vec())))
+        let reply = GossipReply {
+            protocol: protocol_type,
+            sender: sender.to_string(),
+            buffer: buffer[..n_bytes].to_vec(),
+        };
+        Ok(Some(reply))
     }
 
     /// Sends the UUID of the current node to the sender of a message.
