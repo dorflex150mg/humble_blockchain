@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 mod chain {
     pub mod chain;
     pub mod block {
@@ -5,60 +6,34 @@ mod chain {
     }
 }
 
+#[allow(clippy::module_inception)]
 mod miner {
     pub mod miner;
 }
 
+#[allow(clippy::module_inception)]
 mod wallet {
     pub mod wallet;
 }
 
+#[allow(clippy::module_inception)]
 mod transaction {
     pub mod transaction;
 }
 
-mod node {
-    pub mod node;
-    pub mod gossip;
-    pub mod neighbour;
-    pub mod protocol;
-    pub mod receiver;
-    pub mod reply;
-    pub mod theme;
-}
+pub mod dht;
+pub mod node;
+pub mod object;
 
-mod dht {
-    pub mod peer;
-}
-
-mod object {
-    pub mod object;
-}
-
-mod test {
-    pub mod test_core;
-    pub mod test_gossip;
-    pub mod test_peer;
-}
-
-
-
-use crate::miner::miner::miner::Miner as Miner;
-use crate::chain::chain::chain::Chain as Chain;
-use crate::wallet::wallet::wallet::Wallet as Wallet;
-use crate::transaction::transaction::transaction::Transaction as Transaction;
-use crate::test::test_core::test_core as test_core;
-use crate::test::test_gossip::test_gossip as test_gossip;
-use crate::test::test_peer::test_peer as test_peer;
+use crate::miner::miner::Miner as Miner;
+use crate::chain::chain::Chain as Chain;
+use crate::wallet::wallet::Wallet as Wallet;
+use crate::transaction::transaction::Transaction as Transaction;
 
 
 #[tokio::main]
 async fn main() {
     init_tracing();
-
-    //test_gossip::test_gossip().await;
-    //test_core::test_core();
-    test_peer::test_peer();
 }
 
 pub fn init_tracing() {

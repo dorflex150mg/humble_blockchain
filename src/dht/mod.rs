@@ -1,1 +1,1 @@
-pub mod dht;
+pub mod peer;
