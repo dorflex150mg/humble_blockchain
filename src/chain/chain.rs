@@ -4,10 +4,19 @@ use crate::miner::miner::MiningDigest;
 use crate::node::reply::Reply;
 use crate::Transaction;
 
-use std::fmt;
+use std::{
+    cmp::{
+        PartialOrd,
+        Ord,
+        PartialEq,
+        Eq,
+    }, 
+    fmt
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::debug;
+use uuid::Uuid;
 
 /// The interval (in seconds) to check for increasing difficulty. Difficulty increases if mining a block takes more than this interval.
 const INTERVAL: u64 = 60;
@@ -15,10 +24,45 @@ const INTERVAL: u64 = 60;
 /// Struct representing a blockchain with a vector of blocks, length, and mining difficulty.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Chain {
+    id: Uuid,
     blocks: Vec<Block>,    // List of blocks in the chain
     len: usize,            // Current length of the chain
     pub difficulty: usize, // Current mining difficulty (number of leading zeros required)
 }
+
+impl PartialEq for Chain {
+    fn eq(&self, other: &Self) -> bool {
+        self.len == other.len() 
+    }
+}
+
+impl Eq for Chain {}
+
+impl PartialOrd for Chain {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Chain {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.len.cmp(&other.len())
+    }
+}
+
+impl fmt::Display for Chain {
+
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let str_blocks: String = self
+            .blocks
+            .iter()
+            .map(|b| b.to_string())
+            .collect::<Vec<String>>()
+            .join(" | ");
+        write!(f, "Chain[len: {}, difficulty: {}, {}]", self.len, self.difficulty, str_blocks)
+    }
+}
+
 
 /// Enum representing possible errors when validating a block in the chain.
 #[derive(Debug)]
@@ -60,7 +104,9 @@ impl Chain {
     /// A new instance of `Chain`.
     pub fn new() -> Self {
         let genesis_block = Block::new(0, "0".repeat(64), String::from(""), Some("0".repeat(64)));
+        let id = Uuid::new_v4(); 
         let mut chain = Chain {
+            id,
             blocks: vec![],
             len: 0,
             difficulty: 1,
@@ -78,7 +124,9 @@ impl Chain {
         self.len
     }
 
+    
     /// Verifies the validity of a block based on its data, previous hash, and current difficulty.
+    ///
     ///
     /// # Arguments
     /// * `data` - The block data.
