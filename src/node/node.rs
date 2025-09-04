@@ -23,8 +23,6 @@ use tokio::sync::{
     Mutex,
 };
 
-
-
 use std::{
     sync::Arc,
     collections::HashMap,
@@ -35,7 +33,7 @@ use std::{
 use thiserror::Error;
 use rand::prelude::*;
 use uuid::{self, Uuid};
-use tracing::{debug, info, trace};
+use tracing::{debug, info};
 
 #[allow(dead_code)]
 const DEFAULT_ADDRESS: &str = "127.0.0.1";
@@ -143,12 +141,10 @@ impl Node {
         }
     }
 
-    pub async fn update_log(&self) {
+    pub async fn update_log(&self, log_msg: impl Into<String>) {
         if let Some(log_sender) = &self.log_sender {
-            let _ = log_sender.send(self.chain.len().to_string()).await;
-        } else {
-            //println!("Sender is empty: {}", self.id);
-        }
+            let _ = log_sender.send(log_msg.into()).await;
+        } 
     }
 
     pub fn get_address(&self) -> Arc<str> {
@@ -247,9 +243,10 @@ impl Node {
                         self.neighbours.insert(neighbour.id, neighbour.clone());
                         self.new_neighbours.push(neighbour);
                         self.initialized = true;
+                        self.update_log("NeighbourAdded").await;
                     }
                     Err(_) => {
-                        debug!("Node {} failed to greet tracker", self.id);
+                        println!("Node {} failed to greet tracker", self.id);
                         continue;
                     }
                 }
@@ -311,17 +308,22 @@ impl Node {
     pub async fn listen_to_peers(
         &mut self, 
         sender: broadcast::Sender<Chain>, 
-        mut mining_receiver: &mut mpsc::Receiver<Chain>,
+        mining_receiver: &mut mpsc::Receiver<Chain>,
         mut receiver: broadcast::Receiver<Chain>,
     ) -> Result<(), GossipError> {
         loop {
             self.check_mined_chain_and_broadcast(&sender, mining_receiver);
             self.check_peer_mined_chains(&mut receiver);
-            self.update_log().await;
+            self.update_log(self.chain.len().to_string()).await;
             let gossip_reply = 
                 match gossip::listen_to_gossip(self.address.clone()).await {
                 Ok(res) => match res {
-                    Some(gossip_reply) => gossip_reply, 
+                    Some(gossip_reply) => {
+                        if gossip_reply.protocol == protocol::GREET {
+                            self.update_log("GossipGreetReply").await;
+                        }
+                        gossip_reply 
+                    }
                     None => return Ok(()),
                 }
                 Err(_) => return Ok(()),
@@ -538,23 +540,18 @@ async fn listen_to_transactions(
     miner: Option<Arc<Mutex<Miner>>>,
     log_sender: Option<Sender<String>>,
 ) {
-    match receive_transaction(receiver).await {
-        Ok(transaction) => {
-            debug!("Transaction being received: {}", &transaction);
-            match miner {
-                Some(m) => {
-                    let mut miner_ref = m.clone();
-                    if let Some(sender) = log_sender {
-                        let _ = sender.send("Transaction Received".to_string()).await;
-                    }
-                    push_transaction(&mut miner_ref, transaction).await
-                },
-                _ => submit_transaction(transaction, neighbours, address).await,
-            };
-        },
-        Err(e) => {
-            //println!("Error: {}", e); 
-        },
+    if let Ok(transaction) = receive_transaction(receiver).await {
+        debug!("Transaction being received: {}", &transaction);
+        match miner {
+            Some(m) => {
+                let mut miner_ref = m.clone();
+                if let Some(sender) = log_sender {
+                    let _ = sender.send("Transaction Received".to_string()).await;
+                }
+                push_transaction(&mut miner_ref, transaction).await
+            },
+            _ => submit_transaction(transaction, neighbours, address).await,
+        };
     }
 }
 
@@ -608,9 +605,6 @@ async fn receive_transaction(receiver: Arc<Mutex<Receiver>>)
     }
 }
 
-
-
-
 async fn try_mine(
     node_id: Uuid, 
     miner_opt: Option<Arc<Mutex<Miner>>>, 
@@ -622,7 +616,7 @@ async fn try_mine(
         let loop_miner = miner.clone();
         tokio::spawn(async move {
             let new_chain = mine(loop_miner, current_chain.clone()).await;
-            //println!("node {} has succefully mined a block and now it is: {}", node_id, new_chain);
+            info!("node {} has succefully mined a block and now it is: {}", node_id, new_chain);
             match mining_sender.send(new_chain).await {
                 Ok(_) => (), //println!("New Chain succesfully sent."),
                 Err(e) => println!("Failed to send new chain due to {}", e),

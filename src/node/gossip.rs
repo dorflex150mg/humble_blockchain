@@ -74,7 +74,7 @@ pub async fn greet(address: Arc<str>, id: Uuid, role: Role, tracker: &str) -> IO
     }
 
     let str_id = str::from_utf8(&buffer_recv).unwrap();
-    debug!("New neighbour connected");
+    println!("New neighbour connected: {}", &str_id);
 
     Ok(Neighbour {
         id: Uuid::parse_str(str_id).unwrap(),
@@ -192,7 +192,7 @@ pub async fn listen_to_gossip(address: Arc<str>) -> Result<Option<GossipReply>, 
     let socket = UdpSocket::bind(address.as_ref()).await?;
     let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
 
-    debug!("Listening for gossip...");
+    println!("Listening for gossip...");
 
     let (n_bytes, sender) = match timeout(Duration::new(3, 0), socket.recv_from(&mut buffer)).await {
         Ok(Ok((n_bytes, sender))) => (n_bytes, sender),

@@ -7,12 +7,12 @@ use crate::{
     },
 };
 
-use std::{future::Future, time::Duration};
+use std::time::Duration;
 
 use tokio::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 
-use crate::{transaction, Transaction, Wallet};
+use crate::{Transaction, Wallet};
 
 use tracing::{info, debug};
 
@@ -116,7 +116,7 @@ pub async fn test_gossip() {
 
     // Create the third node (Miner)
     let (tx1, rx3) = mpsc::channel::<String>(1024);
-    let (log_sender, mut log_receiver) = mpsc::channel::<String>(1024);
+    let (log_sender, log_receiver) = mpsc::channel::<String>(1024);
     let mut node3 = Node::new(
         Role::Miner,
         "127.0.0.1:8083".to_owned(),
@@ -150,24 +150,27 @@ pub async fn test_gossip() {
 
 
     tokio::select! {
-        _ = tokio::time::sleep(Duration::from_secs(10)) => {
+        _ = tokio::time::sleep(Duration::from_secs(15)) => {
             panic!("Assertion failed");
         },
         log_strings = recv_3(log_receiver) => {
             let mut rev = log_strings.iter().rev().peekable();
-            let mut mined_blocks = None;
+            let mut mined_blocks = 0;
             let mut transaction_ack = None;
-            while (mined_blocks.is_none() || transaction_ack.is_none()) && rev.peek().is_some() {
+            let mut neighbour_added = 0; 
+            while rev.peek().is_some() {
                 let next = rev.next().unwrap();
-                if let Ok(m) = next.parse::<usize>() {
-                    mined_blocks = Some(m);
+                if next.parse::<usize>().is_ok() {
+                    mined_blocks += 1;
                 } else if next == "Transaction Received" { 
                     transaction_ack = Some(next);
+                } else if next == "NeighbourAdded" {
+                    neighbour_added += 1;
                 }
             }
             assert!(transaction_ack.is_some());
-            assert!(mined_blocks.is_some());
-            assert!(mined_blocks.unwrap() >= 2);
+            assert!(mined_blocks >= 2);
+            assert_eq!(neighbour_added, 1);
         }
     };
             

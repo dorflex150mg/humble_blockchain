@@ -23,7 +23,7 @@ pub fn test_core() {
 
     // Create the first miner
     let mut miner1 = Miner::new(1, String::from("Miner 1"));
-    println!("Miner created -> {}", miner1);
+    info!("Miner created -> {}", miner1);
 
     // Create a wallet for future transactions
     let wallet1 = Wallet::new();
@@ -62,7 +62,7 @@ pub fn test_core() {
 
 
     // Log the newly mined block with the transaction
-    println!("Block mined by {}: {}", miner1.get_name(), new_mining_digest.get_block());
+    info!("Block mined by {}: {}", miner1.get_name(), new_mining_digest.get_block());
 
     // Add the new block with transactions to the chain
     assert!(my_chain.add_block(new_mining_digest).is_ok());
@@ -79,7 +79,7 @@ pub fn test_core() {
     let chain_clone = Arc::clone(&chain_arc);
     thread::spawn(move || {
         for i in 0..iterations {
-            println!("Miner 2 iteration: {}", i);
+            info!("Miner 2 iteration: {}", i);
             let mut chain = chain_clone.lock().unwrap();
             let last_block = chain.get_last_block();
             let chain_len = chain.get_len();
@@ -93,14 +93,14 @@ pub fn test_core() {
 
             let mining_digest = res_mining_digest.unwrap();
             // Log and add the mined block to the chain
-            println!("Block mined by {}: {}", miner2.get_name(), mining_digest.get_block());
+            info!("Block mined by {}: {}", miner2.get_name(), mining_digest.get_block());
             assert!(chain.add_block(mining_digest).is_ok());
         }
     });
 
     // Miner1 continues mining in the main thread
     for i in 0..iterations {
-        println!("Miner 1 iteration: {}", i);
+        info!("Miner 1 iteration: {}", i);
         let chain = Arc::clone(&other_chain_arc);
         let last_block = chain.lock().unwrap().get_last_block();
         let chain_len = chain.lock().unwrap().get_len();
@@ -114,7 +114,6 @@ pub fn test_core() {
         let mining_digest = res_mining_digest.unwrap();
 
         // Log and add the mined block to the chain
-        println!("Block mined by {}: {}", miner1.get_name(), mining_digest.get_block());
 
         if let Err(e) = chain.lock().unwrap().add_block(mining_digest) {
             info!("Failed to add block: {}", e);
