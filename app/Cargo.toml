@@ -1,0 +1,24 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021" # or 2021
+description = "Blockchain and block structures"
+license = "MIT"
+
+[dependencies]
+# Add crates used in chain, e.g., serialization, crypto
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
+  "env-filter",
+  "fmt",
+  "tracing-log",
+  "json",
+  "tracing",
+] }
+tokio = { version = "1.40.0", features = ["full"] }
+
+# Workspace crate dependencies
+chain = { path = "../chain" }
+wallet = { path = "../wallet" }
+transaction = { path = "../transaction" }
+network = { path = "../network" }

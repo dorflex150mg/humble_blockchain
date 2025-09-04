@@ -1,5 +1,5 @@
 #[cfg(test)]
-use crate::{
+use network::{
     node::{
         neighbour::Role,
         node::Node,
@@ -9,10 +9,11 @@ use crate::{
 
 use std::time::Duration;
 
-use tokio::sync::mpsc::{self, Sender};
+use tokio::sync::mpsc;
 use std::sync::{Arc, Mutex};
 
-use crate::{Transaction, Wallet};
+use transaction::transaction::Transaction;
+use wallet::wallet::Wallet;
 
 use tracing::{info, debug};
 
@@ -39,8 +40,8 @@ fn make_up_transaction() -> Transaction {
 /// # Arguments
 /// * `tx` - The transaction sender channel.
 /// * `iterations` - Optional number of iterations. If `None`, the loop will run indefinitely.
-async fn send_transaction_loop(mut tx: Sender<String>, iterations: Option<u32>) {
-    async fn _send_transaction_single(tx: Sender<String>) -> Sender<String> {
+async fn send_transaction_loop(mut tx: mpsc::Sender<String>, iterations: Option<u32>) {
+    async fn _send_transaction_single(tx: mpsc::Sender<String>) -> mpsc::Sender<String> {
         let t1 = make_up_transaction();
         info!("sending transaction: {}", t1);
         
@@ -88,13 +89,14 @@ pub async fn test_gossip() {
     let clone1 = Arc::clone(&arc_node1);
 
     // Create the second node (Regular Node)
+    let (log_sender, mut log_receiver) = mpsc::channel::<String>(1024);
     let (_, rx2) = mpsc::channel::<String>(1024);
     let mut node2 = Node::new(
         Role::Node,
         "127.0.0.1:8082".to_owned(),
         Some(vec!["127.0.0.1:8081".to_owned()]), // Node 2 connects to the tracker
         Receiver::new(rx2),
-        None,
+        Some(log_sender),
     );
 
     // Spawn the Tracker node's event loop
@@ -105,6 +107,20 @@ pub async fn test_gossip() {
         };
         let _ = node.node_loop().await;
     });
+
+    tokio::select! {
+        _ = tokio::time::sleep(Duration::from_secs(10)) => {
+            panic!("Assertion failed");
+        },
+
+        log = log_receiver.recv() => {
+            let res = log.unwrap();
+            println!("res: {}", res);
+            assert_eq!(res, "GossipGreetReply");
+        }
+    };
+            
+
 
     // Spawn the second node and start its event loop
     tokio::spawn(async move {
@@ -174,7 +190,6 @@ pub async fn test_gossip() {
         }
     };
             
-
     // Start sending transactions from the first node (tracker)
 
     // Keep the function alive to continue processing

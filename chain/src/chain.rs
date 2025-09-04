@@ -1,8 +1,5 @@
-
-use crate::chain::block::block::Block;
+use crate::block::block::Block;
 use crate::miner::miner::MiningDigest;
-use crate::node::reply::Reply;
-use crate::Transaction;
 
 use std::{
     cmp::{
@@ -233,25 +230,6 @@ impl Chain {
     /// A vector of `Block`s.
     pub fn get_blocks(&self) -> Vec<Block> {
         self.blocks.to_vec() // creates a new vec.
-    }
-}
-
-/// Implementation of the `Reply` trait for the `Chain` struct, allowing it to be used in message replies.
-impl Reply for Chain {
-    /// Converts the chain to a transaction, which is not applicable here.
-    ///
-    /// # Returns
-    /// None, as a chain is not a transaction.
-    fn as_transaction(&mut self) -> Option<&mut Transaction> {
-        None
-    }
-
-    /// Converts the chain into a mutable reference to itself.
-    ///
-    /// # Returns
-    /// A mutable reference to the chain.
-    fn as_chain(&mut self) -> Option<&mut Chain> {
-        Some(self)
     }
 }
 

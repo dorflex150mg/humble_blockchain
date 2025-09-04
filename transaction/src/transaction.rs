@@ -1,5 +1,5 @@
-use crate::node::reply::Reply;
-use crate::Chain;
+pub const N_TRANSACTION_FIELDS: usize = 6;
+pub const TRANSACTION_BLOCK_MEMBER_IDENTIFIER: u8 = 0; //TODO: Repeated. Put somewhere accesible.
 
 use std::{
     fmt,
@@ -19,8 +19,9 @@ pub enum TransactionFromBase64Error {
 
 #[derive(Clone)]
 pub struct Transaction {
-    pub sender: Vec<u8>,
-    pub receiver: Vec<u8>,
+    pub block_entry_type_id: u8,
+    pub sender_wallet: Vec<u8>,
+    pub receiver_wallet: Vec<u8>,
     pub timestamp: u64,
     pub coins: Vec<String>,
     pub signature: Option<Vec<u8>>,
@@ -33,8 +34,9 @@ impl Transaction {
                      .unwrap()
                      .as_secs();
         Transaction {
-            sender,
-            receiver,
+            block_entry_type_id: TRANSACTION_BLOCK_MEMBER_IDENTIFIER, 
+            sender_wallet: sender,
+            receiver_wallet: receiver,
             timestamp: now,
             coins,
             signature: None,
@@ -48,8 +50,9 @@ impl TryFrom<String> for Transaction {
         let params: Vec<&str> = string.as_str().split(';').collect();
         let signature = general_purpose::STANDARD.decode(params[4]).ok();
         Ok(Transaction {
-            sender: general_purpose::STANDARD.decode(params[0])?, 
-            receiver: general_purpose::STANDARD.decode(params[1])?,
+            block_entry_type_id: TRANSACTION_BLOCK_MEMBER_IDENTIFIER,
+            sender_wallet: general_purpose::STANDARD.decode(params[0])?, 
+            receiver_wallet: general_purpose::STANDARD.decode(params[1])?,
             coins: vec![params[2].to_string().clone()],
             timestamp: params[3].parse::<u64>()?,
             signature,
@@ -70,9 +73,10 @@ impl Into<String> for Transaction {
             ).to_string(),
             None => "".to_string(),
         };
-        format!("{};{};{};{};{};", 
-            general_purpose::STANDARD.encode(&self.sender), 
-            general_purpose::STANDARD.encode(&self.receiver),
+        format!("{};{};{};{};{};{};", 
+            self.block_entry_type_id,
+            general_purpose::STANDARD.encode(&self.sender_wallet), 
+            general_purpose::STANDARD.encode(&self.receiver_wallet),
             joined_coins,
             self.timestamp,
             signature,
@@ -83,16 +87,7 @@ impl Into<String> for Transaction {
 impl fmt::Display for Transaction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "timestamp: {}, sender: {:?}, receiver: {:?}, coins: {}", 
-                self.timestamp, self.sender, self.receiver, self.coins.join(" "))
+                self.timestamp, self.sender_wallet, self.receiver_wallet, self.coins.join(" "))
     }
 }
 
-impl Reply for Transaction {
-    fn as_transaction(&mut self) -> Option<&mut Transaction> {
-        Some(self)
-    }
-
-    fn as_chain(&mut self) -> Option<&mut Chain> {
-        None
-    }
-}

@@ -1,10 +1,10 @@
-use crate::chain::block::block::{
+use crate::block::block::{
     self, 
     Block, 
     InvalidTransactionErr
 };
-use crate::transaction::transaction::Transaction;
-use crate::Wallet;
+use transaction::transaction::Transaction;
+use wallet::wallet::Wallet;
 
 use std::fmt;
 use std::cmp;

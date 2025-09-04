@@ -1,11 +1,9 @@
 #![allow(unused_imports)]
 #[cfg(test)]
-use crate::{
-    miner::miner::Miner,
-    chain::chain::Chain,
-    wallet::wallet::Wallet,
-    transaction::transaction::Transaction,
-};
+use chain::miner::miner::Miner;
+use chain::chain::Chain;
+use wallet::wallet::Wallet;
+use transaction::transaction::Transaction;
 
 use std::thread;
 use std::sync::{Arc, Mutex};

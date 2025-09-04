@@ -1,18 +1,16 @@
-use crate::{
-    Chain,
-    Transaction,
-    Miner,
-    node::{
-        neighbour::{Neighbour, Role},
-        gossip,
-        gossip::GossipError,
-        protocol,
-        receiver::Receiver,
-        reply::Reply,
-        theme::Theme,
-    },
-    transaction::transaction::TransactionFromBase64Error,
+use chain::chain::Chain;
+use chain::miner::miner::Miner;
+use transaction::transaction::Transaction;
+use crate::node::{
+    neighbour::{Neighbour, Role},
+    gossip,
+    gossip::GossipError,
+    protocol,
+    receiver::Receiver,
+    reply::Reply,
+    theme::Theme,
 };
+use transaction::transaction::TransactionFromBase64Error;
 use tokio::sync::{
     broadcast,
     mpsc::{

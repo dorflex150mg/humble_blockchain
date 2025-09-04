@@ -1,11 +1,10 @@
-use crate::transaction::transaction::Transaction;
+use transaction::transaction::Transaction;
 
 use ring::rand::{SystemRandom};
 use ring::signature::{KeyPair, EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
 use std::fmt;
 
 pub struct Wallet {
-    //pub key_pair: Ed25519KeyPair,
     pub key_pair: EcdsaKeyPair,
     pub coins: Vec<String>,
     rng: SystemRandom,
@@ -57,8 +56,8 @@ impl Wallet {
     }
 
     pub fn sign(&self, mut transaction: Transaction) -> Transaction {
-        let arr_sender: &[u8] = &transaction.sender.clone();
-        let arr_receiver: &[u8] = &transaction.receiver.clone();
+        let arr_sender: &[u8] = &transaction.sender_wallet.clone();
+        let arr_receiver: &[u8] = &transaction.receiver_wallet.clone();
         let members = [arr_sender,
             arr_receiver, 
             &transaction.timestamp.to_ne_bytes()];
@@ -98,5 +97,3 @@ impl fmt::Display for Wallet {
         write!(f, "{{\n{}}}", joint_coins)
     }
 }
-
-    
