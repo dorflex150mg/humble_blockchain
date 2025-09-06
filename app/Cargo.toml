@@ -20,5 +20,4 @@ tokio = { version = "1.40.0", features = ["full"] }
 # Workspace crate dependencies
 chain = { path = "../chain" }
 wallet = { path = "../wallet" }
-transaction = { path = "../transaction" }
 network = { path = "../network" }

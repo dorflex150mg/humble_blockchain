@@ -1,6 +1,6 @@
 use chain::chain::Chain;
 use chain::miner::miner::Miner;
-use transaction::transaction::Transaction;
+use wallet::transaction::transaction::{Transaction, TransactionFromBase64Error};
 use crate::node::{
     neighbour::{Neighbour, Role},
     gossip,
@@ -10,7 +10,6 @@ use crate::node::{
     reply::Reply,
     theme::Theme,
 };
-use transaction::transaction::TransactionFromBase64Error;
 use tokio::sync::{
     broadcast,
     mpsc::{

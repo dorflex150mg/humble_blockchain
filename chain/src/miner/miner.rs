@@ -3,7 +3,7 @@ use crate::block::block::{
     Block, 
     InvalidTransactionErr
 };
-use transaction::transaction::Transaction;
+use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
 use std::fmt;

@@ -1,4 +1,4 @@
-use transaction::transaction::Transaction;
+use wallet::transaction::transaction::Transaction;
 use chain::chain::Chain;
 
 pub trait Reply {

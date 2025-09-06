@@ -29,5 +29,4 @@ uuid = {version = "1.10.0", features = ["v4", "serde"]}
 derive_more = "^0.99"
 xxhash-rust = {version = "0.8.5", features = ["xxh3", "const_xxh3"]}
 
-transaction = {path = "../transaction"}
 wallet = {path = "../wallet"}

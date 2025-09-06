@@ -30,5 +30,4 @@ derive_more = "^0.99"
 xxhash-rust = {version = "0.8.5", features = ["xxh3", "const_xxh3"]}
 
 chain = {path = "../chain"}
-transaction = {path = "../transaction"}
 wallet = {path = "../wallet"}

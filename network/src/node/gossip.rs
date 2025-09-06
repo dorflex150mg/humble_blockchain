@@ -2,7 +2,7 @@ use crate::node::neighbour::{Neighbour, Role};
 use crate::node::protocol;
 
 use chain::chain::Chain;
-use transaction::transaction::Transaction;
+use wallet::transaction::transaction::Transaction;
 
 use std::{
     io::{Result as IOResult, Error as IOError},

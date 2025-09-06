@@ -3,7 +3,7 @@
 use chain::miner::miner::Miner;
 use chain::chain::Chain;
 use wallet::wallet::Wallet;
-use transaction::transaction::Transaction;
+use wallet::transaction::transaction::Transaction;
 
 use std::thread;
 use std::sync::{Arc, Mutex};

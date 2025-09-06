@@ -1,6 +1,6 @@
 use crate::block::block_member::{RECORD_BLOCK_MEMBER_IDENTIFIER, TRANSACTION_BLOCK_MEMBER_IDENTIFIER};
-use transaction::transaction::N_TRANSACTION_FIELDS;
-use transaction::transaction::Transaction;
+use wallet::transaction::transaction::N_TRANSACTION_FIELDS;
+use wallet::transaction::transaction::Transaction;
 
 use std::str::Chars;
 use std::time::{SystemTime, UNIX_EPOCH};
