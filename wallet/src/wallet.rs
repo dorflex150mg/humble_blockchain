@@ -1,4 +1,4 @@
-use transaction::transaction::Transaction;
+use crate::transaction::transaction::Transaction;
 
 use ring::rand::{SystemRandom};
 use ring::signature::{KeyPair, EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};

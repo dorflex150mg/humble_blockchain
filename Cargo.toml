@@ -2,7 +2,6 @@
 members = [
     "chain",
     "wallet",
-    "transaction",
     "network",
     "app"
 ]
