@@ -16,10 +16,11 @@ impl fmt::Display for ThemeError {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub enum Theme {
-    Chain,
+    #[default]
     NewNeighbours,
+    Chain,
 }
 
 impl Theme {
@@ -31,15 +32,12 @@ impl Theme {
         }
     }
 
-        
-    
     pub fn to_protocol(&self) -> usize {
         match self {
             Theme::Chain => 0,
             Theme::NewNeighbours => 1,
         }
     }
-
 
     pub fn from_protocol(n: usize) -> Result<Self, ThemeError> {
         match n {

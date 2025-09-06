@@ -8,17 +8,6 @@
 //! - `transaction` for transactions
 //! - `network` for DHT, node, and object management                                   // Explicitly forbid dangerous practices
 
-#![deny(clippy::unwrap_used)]  // ban .unwrap()
-#![deny(clippy::expect_used)]  // ban .expect()
-#![deny(clippy::panic)]        // ban explicit panic! calls
-#![deny(clippy::todo)]         // ban todo! placeholders
-// Silence some of the overly nitpicky pedantic lints
-#![allow(clippy::module_name_repetitions)] // don’t complain if module names repeat
-#![allow(clippy::missing_panics_doc)]      // don’t force panic! documentation
-#![allow(clippy::missing_errors_doc)]      // don’t force error-return documentation
-#![warn(missing_docs)]
-
-
 use tracing_subscriber::{fmt, EnvFilter, layer::SubscriberExt, util::SubscriberInitExt, Registry};
 use tracing_subscriber::fmt::writer::TestWriter;
 use std::sync::Once;

@@ -120,7 +120,6 @@ impl Node {
 
         if role == Role::Miner {
             transaction_buffer = Some(vec![]);
-
             miner = Some(Arc::new(Mutex::new(Miner::new(1, "miner".to_string())))); //TODO: generate id and name
         }
         Node {
@@ -170,13 +169,14 @@ impl Node {
     /// Main node loop that listens and processes various activities in the network.
     pub async fn node_loop(&mut self) -> Result<(), GossipError> {
         debug!("{} starting node loop.", self.id);
-        let mut theme = Theme::NewNeighbours;
+        let mut theme = Theme::default();
         let (mining_sender, mut mining_receiver) =
             mpsc::channel(1024);
         let mining_sender: &'static Sender<Chain>= Box::leak(Box::new(mining_sender));
         loop {
 
             //Task 1: Spread update to neighbours.
+            println!("{} spreading updates.", self.id);
             theme.next(); 
             let chain_gossip = self.chain.clone();
             let address_gossip = self.address.clone();
@@ -195,6 +195,7 @@ impl Node {
             ));
 
             //Task 2: Add local transactions to local miner or send them to remote miners. 
+            println!("{} listening to transactions (miner).", self.id);
             let receiver_clone = self.receiver.clone();
             let neighbours = self.neighbours.clone();
             let address = self.address.clone();
@@ -538,19 +539,23 @@ async fn listen_to_transactions(
     miner: Option<Arc<Mutex<Miner>>>,
     log_sender: Option<Sender<String>>,
 ) {
-    if let Ok(transaction) = receive_transaction(receiver).await {
-        debug!("Transaction being received: {}", &transaction);
-        match miner {
-            Some(m) => {
-                let mut miner_ref = m.clone();
-                if let Some(sender) = log_sender {
-                    let _ = sender.send("Transaction Received".to_string()).await;
-                }
-                push_transaction(&mut miner_ref, transaction).await
-            },
-            _ => submit_transaction(transaction, neighbours, address).await,
-        };
-    }
+    match receive_transaction(receiver).await {
+        Ok(transaction) => {
+        println!("[{}] Transaction being received: {}", address, &transaction);
+            match miner {
+                Some(m) => {
+                    let mut miner_ref = m.clone();
+                    if let Some(sender) = log_sender {
+                        let _ = sender.send("Transaction Received".to_string()).await;
+                    }
+                    push_transaction(&mut miner_ref, transaction).await
+                },
+                _ => submit_transaction(transaction, neighbours, address).await,
+            };
+        },
+        Err(e) => println!("[{}] receive transaction failed: {}", address, e),
+
+    } 
 }
 
 /// Handles the gossiping process with random neighbours, based on the provided theme.

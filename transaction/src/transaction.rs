@@ -48,13 +48,13 @@ impl TryFrom<String> for Transaction {
     type Error = TransactionFromBase64Error;
     fn try_from(string: String) -> Result<Self, Self::Error> {
         let params: Vec<&str> = string.as_str().split(';').collect();
-        let signature = general_purpose::STANDARD.decode(params[4]).ok();
+        let signature = general_purpose::STANDARD.decode(params[5]).ok();
         Ok(Transaction {
             block_entry_type_id: TRANSACTION_BLOCK_MEMBER_IDENTIFIER,
-            sender_wallet: general_purpose::STANDARD.decode(params[0])?, 
-            receiver_wallet: general_purpose::STANDARD.decode(params[1])?,
-            coins: vec![params[2].to_string().clone()],
-            timestamp: params[3].parse::<u64>()?,
+            sender_wallet: general_purpose::STANDARD.decode(params[1])?, 
+            receiver_wallet: general_purpose::STANDARD.decode(params[2])?,
+            coins: vec![params[3].to_string().clone()],
+            timestamp: params[4].parse::<u64>()?,
             signature,
         })
     }

@@ -194,12 +194,12 @@ pub async fn listen_to_gossip(address: Arc<str>) -> Result<Option<GossipReply>, 
     let socket = UdpSocket::bind(address.as_ref()).await?;
     let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
 
-    println!("Listening for gossip...");
+    println!("[{}] Listening for gossip...", address);
 
     let (n_bytes, sender) = match timeout(Duration::new(3, 0), socket.recv_from(&mut buffer)).await {
         Ok(Ok((n_bytes, sender))) => (n_bytes, sender),
         _ => {
-            debug!("Got nothing here");
+            println!("Got nothing here");
             return Ok(None);
         },
     };
