@@ -1,6 +1,8 @@
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use uuid::Uuid;
+
 use wallet::wallet::Wallet;
 use wallet::transaction::transaction::Transaction;
 
@@ -28,12 +30,13 @@ fn round_trip() {
     thread::sleep(Duration::from_secs(1));
     
     assert_eq!(fields[0].parse::<u8>().unwrap(), TRANSACTION_BLOCK_MEMBER_IDENTIFIER);
-    assert_eq!(fields[1].len(), 88);
+    assert!(Uuid::parse_str(&fields[1]).is_ok());
     assert_eq!(fields[2].len(), 88);
-    assert_eq!(fields[3], "0000000000000000000000000000000000000000000000000000000000000000");
-    println!("{} - {}", fields[4].parse::<u64>().unwrap(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs());
-    assert!(fields[4].parse::<u64>().unwrap() < SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs());
-    assert_eq!(fields[5], "");
+    assert_eq!(fields[3].len(), 88);
+    assert_eq!(fields[4], "0000000000000000000000000000000000000000000000000000000000000000");
+    println!("{} - {}", fields[5].parse::<u64>().unwrap(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs());
+    assert!(fields[5].parse::<u64>().unwrap() < SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs());
+    assert_eq!(fields[6], "");
     let retrieved_transaction = Transaction::try_from(string).unwrap(); 
 
     assert_eq!(retrieved_transaction, test_transaction);
@@ -50,10 +53,7 @@ fn test_signature() {
         receiver,
         vec![some_token],
     );
-
     let same_transaction = test_transaction.clone();
-
-    test_transaction = sender_wallet.sign(test_transaction);
-
+    let test_transaction = sender_wallet.sign(test_transaction);
     assert_ne!(test_transaction, same_transaction);
 }

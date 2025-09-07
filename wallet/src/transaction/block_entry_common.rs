@@ -1,5 +1,6 @@
 use thiserror::Error;
 use std::num::ParseIntError;
+use std::fmt::Debug;
 
 pub const TRANSACTION_BLOCK_MEMBER_IDENTIFIER: u8 = 0; 
 pub const RECORD_BLOCK_MEMBER_IDENTIFIER: u8 = 0; 
@@ -13,7 +14,7 @@ pub enum EntryDecodeError {
     WrongFieldCountError,
 }
 
-pub trait Sign {
+pub trait Sign: Debug {
     fn get_payload(&self) -> Vec<u8>; 
     fn set_signature(&mut self, signaure: Vec<u8>);  
 }

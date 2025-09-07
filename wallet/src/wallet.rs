@@ -1,8 +1,10 @@
 use crate::transaction::transaction::Transaction;
+use crate::transaction::block_entry_common::Sign;
 
 use ring::rand::{SystemRandom};
 use ring::signature::{KeyPair, EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
 use std::fmt;
+
 
 pub struct Wallet {
     pub key_pair: EcdsaKeyPair,
@@ -54,29 +56,17 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn sign(&self, mut transaction: Transaction) -> Transaction {
-        let arr_sender: &[u8] = &transaction.sender_wallet.clone();
-        let arr_receiver: &[u8] = &transaction.receiver_wallet.clone();
-        let members = [arr_sender,
-            arr_receiver, 
-            &transaction.timestamp.to_ne_bytes()];
-        let mut vec: Vec<u8> = members.concat();
-        let coins: Vec<Vec<u8>> = transaction.coins
-            .iter()
-            .map(|coin| { coin.as_bytes().to_vec() })
-            .collect();
-        for mut i in coins {
-            vec.append(&mut i);
-        }
+    pub fn sign<T: Sign>(&self, mut entry: T) -> T {
+        let vec = entry.get_payload();
         let bytes = &vec; 
-        transaction.signature = Some(self.key_pair.sign(&self.rng, bytes).unwrap().as_ref().to_vec());
-        transaction
+        entry.set_signature(self.key_pair.sign(&self.rng, bytes).unwrap().as_ref().to_vec());
+        entry 
     }
         
 
     #[allow(dead_code)]
     pub fn submit_transaction(&mut self, receiver: Vec<u8>, amount: usize) 
-                -> Result<Transaction, TransactionErr> {
+                -> Result<impl Sign, TransactionErr> {
         self.check_balance(amount)?;
         let coins: Vec<String> = (0..amount).map(|_| {
             self.coins.pop().unwrap()

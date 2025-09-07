@@ -1,56 +1,50 @@
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use uuid::Uuid;
+
+use base64::{Engine as _, engine::general_purpose};
 use wallet::wallet::Wallet;
-use wallet::transaction::transaction::Record;
+use wallet::transaction::record::Record;
 
 use wallet::transaction::block_entry_common::RECORD_BLOCK_MEMBER_IDENTIFIER;
 
 #[test]
 fn round_trip() {
     let poster = Wallet::new().get_pub_key(); 
-    let test_transaction = Record::new(
+    let test_record = Record::new(
         poster, 
-        receiver,
-        "some data", 
+        "some id",
+        "some data".as_bytes().to_vec(), 
     );
 
-    let string: String = test_transaction.clone().into();
+    let string: String = test_record.clone().into();
 
-    let fields: Vec<String> = string.split(";")
-        .map(|x| x.to_owned())
+    let fields: Vec<&str> = string.split(";")
         .collect();
 
 
     thread::sleep(Duration::from_secs(1));
     
-    assert_eq!(fields[0].parse::<u8>().unwrap(), TRANSACTION_BLOCK_MEMBER_IDENTIFIER);
-    assert_eq!(fields[1].len(), 88);
+    assert_eq!(fields[0].parse::<u8>().unwrap(), RECORD_BLOCK_MEMBER_IDENTIFIER);
+    assert!(Uuid::parse_str(&fields[1]).is_ok());
     assert_eq!(fields[2].len(), 88);
-    assert_eq!(fields[3], "0000000000000000000000000000000000000000000000000000000000000000");
-    println!("{} - {}", fields[4].parse::<u64>().unwrap(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs());
-    assert!(fields[4].parse::<u64>().unwrap() < SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs());
+    assert_eq!(fields[3], "some id");
     assert_eq!(fields[5], "");
-    let retrieved_transaction = Transaction::try_from(string).unwrap(); 
+    let retrieved_record = Record::try_from(string).unwrap(); 
 
-    assert_eq!(retrieved_transaction, test_transaction);
+    assert_eq!(retrieved_record, test_record);
 }
 
 #[test]
 fn test_signature() {
-    let some_token = "0".repeat(64);
-    let sender_wallet = Wallet::new();
-    let sender = sender_wallet.get_pub_key(); 
-    let receiver = Wallet::new().get_pub_key(); 
-    let mut test_transaction = Transaction::new(
-        sender, 
-        receiver,
-        vec![some_token],
+    let poster_wallet = Wallet::new();
+    let test_record = Record::new(
+        poster_wallet.get_pub_key(), 
+        "some id",
+        "some data".as_bytes().to_vec(), 
     );
-
-    let same_transaction = test_transaction.clone();
-
-    test_transaction = sender_wallet.sign(test_transaction);
-
-    assert_ne!(test_transaction, same_transaction);
+    let same_record = test_record.clone();
+    let test_record = poster_wallet.sign(test_record);
+    assert_ne!(test_record, same_record);
 }

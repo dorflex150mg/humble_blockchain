@@ -1,13 +1,10 @@
-use std::io::Read;
-
 use base64::{Engine as _, engine::general_purpose};
 use uuid::Uuid;
 use crate::transaction::block_entry_common::{EntryDecodeError, Sign, RECORD_BLOCK_MEMBER_IDENTIFIER};
 
 const N_RECORD_FIELDS: usize = 6; 
 
-
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Record {
     block_entry_type_id: u8,
     record_id: Uuid,
@@ -82,7 +79,6 @@ impl Into<String> for Record {
         )
     }
 }
-
 
 impl Sign for Record {
     fn get_payload(&self) -> Vec<u8> {
