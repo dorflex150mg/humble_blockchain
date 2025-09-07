@@ -2,18 +2,17 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use wallet::wallet::Wallet;
-use wallet::transaction::transaction::Transaction;
+use wallet::transaction::transaction::Record;
 
-use wallet::transaction::block_entry_common::TRANSACTION_BLOCK_MEMBER_IDENTIFIER;
+use wallet::transaction::block_entry_common::RECORD_BLOCK_MEMBER_IDENTIFIER;
 
 #[test]
 fn round_trip() {
-    let sender = Wallet::new().get_pub_key(); 
-    let receiver = Wallet::new().get_pub_key(); 
-    let test_transaction = Transaction::new(
-        sender, 
+    let poster = Wallet::new().get_pub_key(); 
+    let test_transaction = Record::new(
+        poster, 
         receiver,
-        vec![some_token],
+        "some data", 
     );
 
     let string: String = test_transaction.clone().into();

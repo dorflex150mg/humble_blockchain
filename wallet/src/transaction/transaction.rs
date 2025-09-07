@@ -3,14 +3,16 @@ use std::{
     time::{SystemTime, 
         UNIX_EPOCH},
 };
+use uuid::Uuid;
 use base64::{Engine as _, engine::general_purpose};
-use crate::transaction::block_entry_common::{self, TRANSACTION_BLOCK_MEMBER_IDENTIFIER};
+use crate::transaction::block_entry_common::{self, TRANSACTION_BLOCK_MEMBER_IDENTIFIER, EntryDecodeError};
 
 pub const N_TRANSACTION_FIELDS: usize = 6;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Transaction {
     pub block_entry_type_id: u8,
+    pub transaction_id: Uuid,
     pub sender_wallet: Vec<u8>,
     pub receiver_wallet: Vec<u8>,
     pub timestamp: u64,
@@ -26,6 +28,7 @@ impl Transaction {
                      .as_secs();
         Transaction {
             block_entry_type_id: block_entry_common::TRANSACTION_BLOCK_MEMBER_IDENTIFIER, 
+            transaction_id: Uuid::new_v4(),
             sender_wallet: sender,
             receiver_wallet: receiver,
             timestamp: now,
@@ -36,26 +39,27 @@ impl Transaction {
 }
 
 impl TryFrom<String> for Transaction {
-    type Error = block_entry_common::EntryDecodeError;
+    type Error = EntryDecodeError;
     fn try_from(string: String) -> Result<Self, Self::Error> {
         let fields: Vec<&str> = string.as_str().split(';').collect();
         if fields.len() < N_TRANSACTION_FIELDS {
-            return Err(block_entry_common::EntryDecodeError::WrongFieldCountError);
+            return Err(EntryDecodeError::WrongFieldCountError);
         }
-        let ident = fields[0].parse::<u8>().map_err(|_| block_entry_common::EntryDecodeError::WrongTypeError)?;
+        let ident = fields[0].parse::<u8>().map_err(|_| EntryDecodeError::WrongTypeError)?;
         if ident != TRANSACTION_BLOCK_MEMBER_IDENTIFIER {
-            return Err(block_entry_common::EntryDecodeError::WrongTypeError);
+            return Err(EntryDecodeError::WrongTypeError);
         }
-        let signature = match fields[5] {
+        let signature = match fields[6] {
             "" => None,
-            _ =>  general_purpose::STANDARD.decode(fields[5]).ok(), 
+            _ =>  general_purpose::STANDARD.decode(fields[6]).ok(), 
         };
         Ok(Transaction {
             block_entry_type_id: ident,
-            sender_wallet: general_purpose::STANDARD.decode(fields[1])?, 
-            receiver_wallet: general_purpose::STANDARD.decode(fields[2])?,
-            coins: vec![fields[3].to_string().clone()],
-            timestamp: fields[4].parse::<u64>()?,
+            transaction_id: Uuid::parse_str(fields[1]).map_err(|_| EntryDecodeError::InvalidIdError)?,
+            sender_wallet: general_purpose::STANDARD.decode(fields[2])?, 
+            receiver_wallet: general_purpose::STANDARD.decode(fields[3])?,
+            coins: vec![fields[4].to_string().clone()],
+            timestamp: fields[5].parse::<u64>()?,
             signature,
         })
     }
@@ -65,6 +69,7 @@ impl TryFrom<String> for Transaction {
 impl Into<String> for Transaction {
     fn into(self) -> String {
         let joined_coins = self.coins.join("");
+
         let signature = match &self.signature {
             Some(_) => general_purpose::STANDARD.encode(self
                 .signature
@@ -74,8 +79,10 @@ impl Into<String> for Transaction {
             ).to_string(),
             None => "".to_string(),
         };
-        format!("{};{};{};{};{};{};", 
+
+        format!("{};{};{};{};{};{};{};", 
             self.block_entry_type_id,
+            self.transaction_id.as_hyphenated(),
             general_purpose::STANDARD.encode(&self.sender_wallet), 
             general_purpose::STANDARD.encode(&self.receiver_wallet),
             joined_coins,
