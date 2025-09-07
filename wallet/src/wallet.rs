@@ -1,10 +1,11 @@
-use crate::transaction::transaction::Transaction;
 use crate::transaction::block_entry_common::Sign;
+use crate::transaction::transaction::Transaction;
 
-use ring::rand::{SystemRandom};
-use ring::signature::{KeyPair, EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
+use thiserror::Error;
+
+use ring::rand::SystemRandom;
+use ring::signature::{EcdsaKeyPair, KeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
 use std::fmt;
-
 
 pub struct Wallet {
     pub key_pair: EcdsaKeyPair,
@@ -12,21 +13,25 @@ pub struct Wallet {
     rng: SystemRandom,
 }
 
+#[derive(Debug, Error)]
 pub enum TransactionErr {
+    #[error("The Transaction requires an amount of tokens greater than this Wallet has available.")]
     InsuficientBalance,
+    #[error("The Transaction token amount must be greater than 0.")]
+    ZeroAmount,
 }
 
 fn generate_key_pair() -> (EcdsaKeyPair, SystemRandom) {
     let rng = SystemRandom::new();
     let pkcs8_bytes = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).unwrap();
-    let key_pair = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, pkcs8_bytes.as_ref(), &rng)
-    .unwrap();  
+    let key_pair =
+        EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, pkcs8_bytes.as_ref(), &rng)
+            .unwrap();
     (key_pair, rng)
 }
 
-
 impl Wallet {
-    pub fn new() -> Self{
+    pub fn new() -> Self {
         let (key_pair, rng) = generate_key_pair();
         Wallet {
             coins: vec![],
@@ -36,7 +41,7 @@ impl Wallet {
     }
 
     pub fn get_pub_key(&self) -> Vec<u8> {
-        self.key_pair.public_key().as_ref().to_vec().clone() 
+        self.key_pair.public_key().as_ref().to_vec().clone()
     }
 
     pub fn add_coin(&mut self, coin: String) {
@@ -44,13 +49,13 @@ impl Wallet {
     }
 
     #[allow(dead_code)]
-    pub fn get_coins(&mut self) -> Vec<String> {
+    pub fn get_coins(&self) -> Vec<String> {
         self.coins.to_vec()
     }
 
     #[allow(dead_code)]
     fn check_balance(&self, amount: usize) -> Result<(), TransactionErr> {
-        if amount > self.coins.len() { 
+        if amount > self.coins.len() {
             return Err(TransactionErr::InsuficientBalance);
         }
         Ok(())
@@ -58,30 +63,38 @@ impl Wallet {
 
     pub fn sign<T: Sign>(&self, mut entry: T) -> T {
         let vec = entry.get_payload();
-        let bytes = &vec; 
-        entry.set_signature(self.key_pair.sign(&self.rng, bytes).unwrap().as_ref().to_vec());
-        entry 
+        let bytes = &vec;
+        entry.set_signature(
+            self.key_pair
+                .sign(&self.rng, bytes)
+                .unwrap()
+                .as_ref()
+                .to_vec(),
+        );
+        entry
     }
-        
 
     #[allow(dead_code)]
-    pub fn submit_transaction(&mut self, receiver: Vec<u8>, amount: usize) 
-                -> Result<impl Sign, TransactionErr> {
+    pub fn submit_transaction(
+        &mut self,
+        receiver: Vec<u8>,
+        amount: usize,
+    ) -> Result<impl Sign, TransactionErr> {
+        if amount == 0 {
+            return Err(TransactionErr::ZeroAmount);
+        }
         self.check_balance(amount)?;
-        let coins: Vec<String> = (0..amount).map(|_| {
-            self.coins.pop().unwrap()
-        }).collect();
-                               
+        let coins: Vec<String> = (0..amount).map(|_| self.coins.pop().unwrap()).collect();
         Ok(self.sign(Transaction::new(
-            self.key_pair.public_key().as_ref().to_vec(), 
-            receiver, 
+            self.key_pair.public_key().as_ref().to_vec(),
+            receiver,
             coins,
         )))
     }
 }
 
 impl fmt::Display for Wallet {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { 
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let joint_coins = self.coins.join(",\n");
         write!(f, "{{\n{}}}", joint_coins)
     }
@@ -91,5 +104,4 @@ impl Default for Wallet {
     fn default() -> Self {
         Wallet::new()
     }
-
 }
