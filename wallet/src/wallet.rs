@@ -33,7 +33,6 @@ impl Wallet {
         }
     }
 
-
     pub fn get_pub_key(&self) -> Vec<u8> {
         self.key_pair.public_key().as_ref().to_vec().clone() 
     }
@@ -96,4 +95,11 @@ impl fmt::Display for Wallet {
         let joint_coins = self.coins.join(",\n");
         write!(f, "{{\n{}}}", joint_coins)
     }
+}
+
+impl Default for Wallet {
+    fn default() -> Self {
+        Wallet::new()
+    }
+
 }

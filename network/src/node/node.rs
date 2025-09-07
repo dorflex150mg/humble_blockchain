@@ -1,6 +1,6 @@
 use chain::chain::Chain;
 use chain::miner::miner::Miner;
-use wallet::transaction::transaction::{Transaction, TransactionFromBase64Error};
+use wallet::transaction::transaction::{Transaction, EntryDecodeError};
 use crate::node::{
     neighbour::{Neighbour, Role},
     gossip,
@@ -75,7 +75,7 @@ pub enum TransactionRecvError {
     #[error(transparent)]
     TryRecvError(TryRecvError),
     #[error(transparent)]
-    TransactionFromBase64Error(TransactionFromBase64Error),
+    TransactionFromBase64Error(EntryDecodeError),
 }
 
 #[derive(Error, Debug, derive_more::From)]

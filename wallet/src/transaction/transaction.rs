@@ -1,21 +1,12 @@
-pub const N_TRANSACTION_FIELDS: usize = 6;
-pub const TRANSACTION_BLOCK_MEMBER_IDENTIFIER: u8 = 0; //TODO: Repeated. Put somewhere accesible.
-
 use std::{
     fmt,
-    num::ParseIntError,
     time::{SystemTime, 
         UNIX_EPOCH},
 };
-use thiserror::Error;
 use base64::{Engine as _, engine::general_purpose};
+use crate::transaction::block_entry_common::{self, TRANSACTION_BLOCK_MEMBER_IDENTIFIER};
 
-
-#[derive(Error, Debug, derive_more::From, derive_more::Display)]    
-pub enum TransactionFromBase64Error {
-    Base64Error(base64::DecodeError),
-    ParseError(ParseIntError),
-}
+pub const N_TRANSACTION_FIELDS: usize = 6;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Transaction {
@@ -34,7 +25,7 @@ impl Transaction {
                      .unwrap()
                      .as_secs();
         Transaction {
-            block_entry_type_id: TRANSACTION_BLOCK_MEMBER_IDENTIFIER, 
+            block_entry_type_id: block_entry_common::TRANSACTION_BLOCK_MEMBER_IDENTIFIER, 
             sender_wallet: sender,
             receiver_wallet: receiver,
             timestamp: now,
@@ -45,19 +36,26 @@ impl Transaction {
 }
 
 impl TryFrom<String> for Transaction {
-    type Error = TransactionFromBase64Error;
+    type Error = block_entry_common::EntryDecodeError;
     fn try_from(string: String) -> Result<Self, Self::Error> {
-        let params: Vec<&str> = string.as_str().split(';').collect();
-        let signature = match params[5] {
+        let fields: Vec<&str> = string.as_str().split(';').collect();
+        if fields.len() < N_TRANSACTION_FIELDS {
+            return Err(block_entry_common::EntryDecodeError::WrongFieldCountError);
+        }
+        let ident = fields[0].parse::<u8>().map_err(|_| block_entry_common::EntryDecodeError::WrongTypeError)?;
+        if ident != TRANSACTION_BLOCK_MEMBER_IDENTIFIER {
+            return Err(block_entry_common::EntryDecodeError::WrongTypeError);
+        }
+        let signature = match fields[5] {
             "" => None,
-            _ =>  general_purpose::STANDARD.decode(params[5]).ok(),
+            _ =>  general_purpose::STANDARD.decode(fields[5]).ok(), 
         };
         Ok(Transaction {
-            block_entry_type_id: TRANSACTION_BLOCK_MEMBER_IDENTIFIER,
-            sender_wallet: general_purpose::STANDARD.decode(params[1])?, 
-            receiver_wallet: general_purpose::STANDARD.decode(params[2])?,
-            coins: vec![params[3].to_string().clone()],
-            timestamp: params[4].parse::<u64>()?,
+            block_entry_type_id: ident,
+            sender_wallet: general_purpose::STANDARD.decode(fields[1])?, 
+            receiver_wallet: general_purpose::STANDARD.decode(fields[2])?,
+            coins: vec![fields[3].to_string().clone()],
+            timestamp: fields[4].parse::<u64>()?,
             signature,
         })
     }

@@ -4,6 +4,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use wallet::wallet::Wallet;
 use wallet::transaction::transaction::Transaction;
 
+use wallet::transaction::block_entry_common::TRANSACTION_BLOCK_MEMBER_IDENTIFIER;
+
 #[test]
 fn round_trip() {
 
@@ -25,7 +27,7 @@ fn round_trip() {
 
     thread::sleep(Duration::from_secs(1));
     
-    assert_eq!(fields[0], "0");
+    assert_eq!(fields[0].parse::<u8>().unwrap(), TRANSACTION_BLOCK_MEMBER_IDENTIFIER);
     assert_eq!(fields[1].len(), 88);
     assert_eq!(fields[2].len(), 88);
     assert_eq!(fields[3], "0000000000000000000000000000000000000000000000000000000000000000");
