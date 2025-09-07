@@ -1,17 +1,12 @@
 use crate::block::block::Block;
 use crate::miner::miner::MiningDigest;
 
-use std::{
-    cmp::{
-        PartialOrd,
-        Ord,
-        PartialEq,
-        Eq,
-    }, 
-    fmt
-};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::{
+    cmp::{Eq, Ord, PartialEq, PartialOrd},
+    fmt,
+};
 use tracing::debug;
 use uuid::Uuid;
 
@@ -29,7 +24,7 @@ pub struct Chain {
 
 impl PartialEq for Chain {
     fn eq(&self, other: &Self) -> bool {
-        self.len == other.len() 
+        self.len == other.len()
     }
 }
 
@@ -48,7 +43,6 @@ impl Ord for Chain {
 }
 
 impl fmt::Display for Chain {
-
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let str_blocks: String = self
             .blocks
@@ -56,10 +50,13 @@ impl fmt::Display for Chain {
             .map(|b| b.to_string())
             .collect::<Vec<String>>()
             .join(" | ");
-        write!(f, "Chain[len: {}, difficulty: {}, {}]", self.len, self.difficulty, str_blocks)
+        write!(
+            f,
+            "Chain[len: {}, difficulty: {}, {}]",
+            self.len, self.difficulty, str_blocks
+        )
     }
 }
-
 
 /// Enum representing possible errors when validating a block in the chain.
 #[derive(Debug)]
@@ -79,17 +76,23 @@ impl fmt::Display for BlockCheckError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             BlockCheckError::WrongIndex(expected, got) => write!(
-                f, "Wrong index. Expected index {}, but the mined block index was {}", expected, got
+                f,
+                "Wrong index. Expected index {}, but the mined block index was {}",
+                expected, got
             ),
             BlockCheckError::InvalidPrefix(difficulty) => write!(
-                f, "Invalid prefix - Not enough \"0\"s at the beginning. Current difficulty: {}", difficulty
+                f,
+                "Invalid prefix - Not enough \"0\"s at the beginning. Current difficulty: {}",
+                difficulty
             ),
             BlockCheckError::NotInChain { expected, got } => write!(
-                f, "Previous hash not in chain. Expected: {}, but got: {}", expected, got
+                f,
+                "Previous hash not in chain. Expected: {}, but got: {}",
+                expected, got
             ),
-            BlockCheckError::WrongHash { expected, got } => write!(
-                f, "Wrong hash. Expected: {}, but got: {}", expected, got
-            ),
+            BlockCheckError::WrongHash { expected, got } => {
+                write!(f, "Wrong hash. Expected: {}, but got: {}", expected, got)
+            }
         }
     }
 }
@@ -101,7 +104,7 @@ impl Chain {
     /// A new instance of `Chain`.
     pub fn new() -> Self {
         let genesis_block = Block::new(0, "0".repeat(64), String::from(""), Some("0".repeat(64)));
-        let id = Uuid::new_v4(); 
+        let id = Uuid::new_v4();
         let mut chain = Chain {
             id,
             blocks: vec![],
@@ -121,7 +124,6 @@ impl Chain {
         self.len
     }
 
-    
     /// Verifies the validity of a block based on its data, previous hash, and current difficulty.
     ///
     ///
@@ -138,7 +140,7 @@ impl Chain {
         data: String,
         previous_hash: &String,
         block_hash: &String,
-        block_index: usize
+        block_index: usize,
     ) -> Result<(), BlockCheckError> {
         let mut hasher = Sha256::new();
         hasher.update(data);
@@ -153,10 +155,16 @@ impl Chain {
         }
         let last_chain_hash = self.blocks.last().unwrap().hash.clone();
         if *previous_hash != last_chain_hash {
-            return Err(BlockCheckError::NotInChain { expected: previous_hash.to_string(), got: last_chain_hash });
+            return Err(BlockCheckError::NotInChain {
+                expected: previous_hash.to_string(),
+                got: last_chain_hash,
+            });
         }
         if digest_str != *block_hash {
-            return Err(BlockCheckError::WrongHash { expected: digest_str, got: block_hash.to_string() });
+            return Err(BlockCheckError::WrongHash {
+                expected: digest_str,
+                got: block_hash.to_string(),
+            });
         }
         debug!("Block successfully validated!");
         Ok(())
@@ -194,7 +202,8 @@ impl Chain {
         let nonce = mining_digest.get_nonce();
         if block.index != 0 {
             let last_block = self.blocks.iter().last().unwrap();
-            let str_block = format!("{}{}{}{}{}{}",  
+            let str_block = format!(
+                "{}{}{}{}{}{}",
                 last_block.hash,
                 last_block.previous_hash,
                 last_block.data,
@@ -235,6 +244,6 @@ impl Chain {
 
 impl Default for Chain {
     fn default() -> Self {
-       Chain::new()
+        Chain::new()
     }
 }

@@ -1,5 +1,5 @@
-use wallet::transaction::transaction::Transaction;
 use chain::chain::Chain;
+use wallet::transaction::transaction::Transaction;
 
 pub trait Reply {
     fn as_transaction(&mut self) -> Option<&mut Transaction>;
@@ -32,4 +32,3 @@ impl Reply for Transaction {
         None
     }
 }
-

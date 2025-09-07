@@ -1,21 +1,15 @@
 #[cfg(test)]
-use network::{
-    node::{
-        neighbour::Role,
-        node::Node,
-        receiver::Receiver,
-    },
-};
+use network::node::{neighbour::Role, node::Node, receiver::Receiver};
 
 use std::time::Duration;
 
-use tokio::sync::mpsc;
 use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
 
 use transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 /// Creates a mock transaction between two wallets with a made-up token.
 ///
@@ -25,11 +19,11 @@ fn make_up_transaction() -> Transaction {
     let some_token = "0".repeat(64); // A made-up coin token represented as a string of 64 zeros
     let wallet1 = Wallet::new();
     let wallet2 = Wallet::new();
-    
+
     let transaction: Transaction = Transaction::new(
         wallet1.get_pub_key(),
         wallet2.get_pub_key(),
-        vec![some_token], 
+        vec![some_token],
     );
 
     wallet1.sign(transaction)
@@ -55,20 +49,18 @@ async fn send_transaction_loop(mut tx: mpsc::Sender<String>, iterations: Option<
     match iterations {
         Some(n) => {
             for _ in 0..n {
-                tx = _send_transaction_single(tx).await;   
-            }
-        },
-        None => {
-            loop {
                 tx = _send_transaction_single(tx).await;
             }
         }
+        None => loop {
+            tx = _send_transaction_single(tx).await;
+        },
     }
 }
 
 /// Test function to simulate a gossip protocol with multiple nodes.
 ///
-/// This function spawns three nodes: one tracker, one regular node, and one miner. 
+/// This function spawns three nodes: one tracker, one regular node, and one miner.
 /// It then starts sending mock transactions to test the gossip protocol between the nodes.
 #[tokio::test]
 pub async fn test_gossip() {
@@ -100,18 +92,16 @@ pub async fn test_gossip() {
     // Spawn the Tracker node's event loop
     tokio::spawn(async move {
         let mut node = {
-            let guard= clone1.lock().unwrap();
+            let guard = clone1.lock().unwrap();
             guard.clone()
         };
         let _ = node.node_loop().await;
     });
 
-
     // Spawn the second node and start its event loop
     tokio::spawn(async move {
         let _ = node2.enter_and_node_loop().await;
     });
-
 
     tokio::select! {
         _ = tokio::time::sleep(Duration::from_secs(15)) => {
@@ -124,7 +114,7 @@ pub async fn test_gossip() {
             assert_eq!(res, "NeighbourAdded");
         }
     };
-            
+
     // Allow some time for the nodes to initialize
     tokio::time::sleep(Duration::from_secs(3)).await;
 
@@ -139,7 +129,6 @@ pub async fn test_gossip() {
         Some(log_sender),
     );
 
-
     async fn recv_3(mut log_receiver: mpsc::Receiver<String>) -> Vec<String> {
         let mut recv = 0;
         let mut logs = vec![];
@@ -147,7 +136,7 @@ pub async fn test_gossip() {
             let log = log_receiver.recv().await.unwrap();
             if let Ok(mined_blocks) = log.parse::<usize>() {
                 recv = mined_blocks;
-            } 
+            }
             logs.push(log);
         }
         logs
@@ -163,7 +152,6 @@ pub async fn test_gossip() {
     tokio::spawn(send_transaction_loop(tx1, None));
     tokio::time::sleep(Duration::from_secs(3)).await;
 
-
     tokio::select! {
         _ = tokio::time::sleep(Duration::from_secs(15)) => {
             panic!("Assertion failed");
@@ -172,12 +160,12 @@ pub async fn test_gossip() {
             let mut rev = log_strings.iter().rev().peekable();
             let mut mined_blocks = 0;
             let mut transaction_ack = None;
-            let mut neighbour_added = 0; 
+            let mut neighbour_added = 0;
             while rev.peek().is_some() {
                 let next = rev.next().unwrap();
                 if next.parse::<usize>().is_ok() {
                     mined_blocks += 1;
-                } else if next == "Transaction Received" { 
+                } else if next == "Transaction Received" {
                     transaction_ack = Some(next);
                 } else if next == "NeighbourAdded" {
                     neighbour_added += 1;
@@ -188,9 +176,8 @@ pub async fn test_gossip() {
             assert_eq!(neighbour_added, 1);
         }
     };
-            
+
     // Start sending transactions from the first node (tracker)
 
     // Keep the function alive to continue processing
-
 }

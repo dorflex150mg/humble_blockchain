@@ -5,13 +5,17 @@ pub const N_THEMES: usize = 2;
 
 #[derive(Error, Debug)]
 pub enum ThemeError {
-    NoSuchTheme{n: usize}
+    NoSuchTheme { n: usize },
 }
 
 impl fmt::Display for ThemeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ThemeError::NoSuchTheme{n} => write!(f, "No theme whose protocol is: {}. There are {} themes", n, N_THEMES),
+            ThemeError::NoSuchTheme { n } => write!(
+                f,
+                "No theme whose protocol is: {}. There are {} themes",
+                n, N_THEMES
+            ),
         }
     }
 }
@@ -24,7 +28,6 @@ pub enum Theme {
 }
 
 impl Theme {
-
     pub fn next(&mut self) {
         *self = match *self {
             Theme::Chain => Theme::NewNeighbours,
@@ -43,8 +46,7 @@ impl Theme {
         match n {
             0 => Ok(Theme::Chain),
             1 => Ok(Theme::NewNeighbours),
-            _ => Err(ThemeError::NoSuchTheme{n}),
+            _ => Err(ThemeError::NoSuchTheme { n }),
         }
     }
-
 }

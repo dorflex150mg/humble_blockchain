@@ -5,20 +5,16 @@ use chain::chain::Chain;
 use wallet::transaction::transaction::Transaction;
 
 use std::{
-    io::{Result as IOResult, Error as IOError},
+    io::{Error as IOError, Result as IOResult},
+    str,
     sync::Arc,
     time::Duration,
-    str,
 };
 
-use tokio::{
-    net::UdpSocket,
-    time::timeout,
-    io::ErrorKind,
-};
-use uuid::Uuid;
 use thiserror::Error;
+use tokio::{io::ErrorKind, net::UdpSocket, time::timeout};
 use tracing::debug;
+use uuid::Uuid;
 
 // Constants
 pub const GOSSIP_INTERVAL: u64 = 3;
@@ -52,10 +48,10 @@ pub struct GossipReply {
 /// * `IOResult<Neighbour>` - The tracker as a `Neighbour` instance.
 pub async fn greet(address: Arc<str>, id: Uuid, role: Role, tracker: &str) -> IOResult<Neighbour> {
     let socket = UdpSocket::bind(address.as_ref()).await?;
-    let greeter = Neighbour { 
-        id, 
-        address: (*address.clone()).to_owned(), 
-        role 
+    let greeter = Neighbour {
+        id,
+        address: (*address.clone()).to_owned(),
+        role,
     };
     let neighbour_str: String = serde_json::to_string(&greeter).unwrap();
     let mut buffer = vec![protocol::GREET];
@@ -103,7 +99,11 @@ pub async fn farewell(address: Arc<str>, neighbour: String) -> IOResult<()> {
 /// * `address` - The address to bind the local UDP socket.
 /// * `miner` - The address of the miner to send the transaction to.
 /// * `transaction` - The transaction to be sent.
-pub async fn send_transaction(address: Arc<str>, miner: String, transaction: Transaction) -> IOResult<()> {
+pub async fn send_transaction(
+    address: Arc<str>,
+    miner: String,
+    transaction: Transaction,
+) -> IOResult<()> {
     let socket = UdpSocket::bind(address.as_ref()).await?;
     let str_transaction: String = transaction.into();
     let mut buffer = vec![protocol::TRANSACTION];
@@ -196,12 +196,13 @@ pub async fn listen_to_gossip(address: Arc<str>) -> Result<Option<GossipReply>, 
 
     println!("[{}] Listening for gossip...", address);
 
-    let (n_bytes, sender) = match timeout(Duration::new(3, 0), socket.recv_from(&mut buffer)).await {
+    let (n_bytes, sender) = match timeout(Duration::new(3, 0), socket.recv_from(&mut buffer)).await
+    {
         Ok(Ok((n_bytes, sender))) => (n_bytes, sender),
         _ => {
             println!("Got nothing here");
             return Ok(None);
-        },
+        }
     };
 
     let protocol_type = buffer[0];
@@ -226,4 +227,3 @@ pub async fn send_id(address: Arc<str>, id: Uuid, sender: String) -> IOResult<()
     socket.send_to(id_str.as_bytes(), &sender).await?;
     Ok(())
 }
-

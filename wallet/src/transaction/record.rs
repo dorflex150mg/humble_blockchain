@@ -1,14 +1,16 @@
-use base64::{Engine as _, engine::general_purpose};
+use crate::transaction::block_entry_common::{
+    EntryDecodeError, Sign, RECORD_BLOCK_MEMBER_IDENTIFIER,
+};
+use base64::{engine::general_purpose, Engine as _};
 use uuid::Uuid;
-use crate::transaction::block_entry_common::{EntryDecodeError, Sign, RECORD_BLOCK_MEMBER_IDENTIFIER};
 
-const N_RECORD_FIELDS: usize = 6; 
+const N_RECORD_FIELDS: usize = 6;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Record {
     block_entry_type_id: u8,
     record_id: Uuid,
-    poster: Vec<u8>, 
+    poster: Vec<u8>,
     key: String,
     value: Vec<u8>,
     signature: Option<Vec<u8>>,
@@ -19,7 +21,7 @@ impl Record {
         Record {
             block_entry_type_id: RECORD_BLOCK_MEMBER_IDENTIFIER,
             record_id: Uuid::new_v4(),
-            poster, 
+            poster,
             key: key.into(),
             value,
             signature: None,
@@ -42,7 +44,7 @@ impl TryFrom<String> for Record {
         }
         let signature = match fields[5] {
             "" => None,
-            _ =>  general_purpose::STANDARD.decode(fields[5]).ok(), 
+            _ => general_purpose::STANDARD.decode(fields[5]).ok(),
         };
         Ok(Record {
             block_entry_type_id: ident,
@@ -51,26 +53,23 @@ impl TryFrom<String> for Record {
             key: fields[3].to_owned(),
             value: general_purpose::STANDARD.decode(fields[4])?,
             signature,
-
         })
-    }   
+    }
 }
 
 #[allow(clippy::from_over_into)]
 impl Into<String> for Record {
     fn into(self) -> String {
         let signature = match &self.signature {
-            Some(_) => general_purpose::STANDARD.encode(self
-                .signature
-                .as_ref()
-                .unwrap()
-                .as_slice()
-            ).to_string(),
+            Some(_) => general_purpose::STANDARD
+                .encode(self.signature.as_ref().unwrap().as_slice())
+                .to_string(),
             None => "".to_string(),
         };
 
-        format!("{};{};{};{};{};{}",
-            self.block_entry_type_id, 
+        format!(
+            "{};{};{};{};{};{}",
+            self.block_entry_type_id,
             self.record_id.as_hyphenated(),
             general_purpose::STANDARD.encode(self.poster),
             self.key,
@@ -87,10 +86,10 @@ impl Sign for Record {
             self.poster.as_ref(),
             self.key.as_bytes(),
             self.value.as_ref(),
-        ].concat()
+        ]
+        .concat()
     }
     fn set_signature(&mut self, signature: Vec<u8>) {
-       self.signature = Some(signature);
+        self.signature = Some(signature);
     }
 }
-

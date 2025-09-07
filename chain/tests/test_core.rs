@@ -1,17 +1,17 @@
 #![allow(unused_imports)]
+use chain::chain::Chain;
 #[cfg(test)]
 use chain::miner::miner::Miner;
-use chain::chain::Chain;
-use wallet::wallet::Wallet;
 use wallet::transaction::transaction::Transaction;
+use wallet::wallet::Wallet;
 
-use std::thread;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use tracing::info;
 
 /// Tests the core functionality of the blockchain, mining, and transactions.
 ///
-/// This function creates a blockchain with a genesis block, adds blocks with and without 
+/// This function creates a blockchain with a genesis block, adds blocks with and without
 /// transactions, and demonstrates two miners working in parallel on the same chain.
 #[test]
 pub fn test_core() {
@@ -28,13 +28,15 @@ pub fn test_core() {
 
     // Setup mining metadata for miner1 and mine the first block
     let last_block = my_chain.get_last_block();
-    miner1.set_chain_meta(my_chain.get_len(), my_chain.difficulty, my_chain.get_blocks());
+    miner1.set_chain_meta(
+        my_chain.get_len(),
+        my_chain.difficulty,
+        my_chain.get_blocks(),
+    );
 
     let res_mining_digest = miner1.mine(last_block);
     assert!(res_mining_digest.is_ok());
     let mining_digest = res_mining_digest.unwrap();
-
-    
 
     // Log details about the mined block
     // Add the new block to the chain
@@ -45,12 +47,19 @@ pub fn test_core() {
     let res_one_token = miner1.wallet.get_coins().pop();
     assert!(res_one_token.is_some());
     let one_token = res_one_token.unwrap();
-    let t1 = Transaction::new(miner1.wallet.get_pub_key(), wallet1.get_pub_key(), vec![one_token]);
+    let t1 = Transaction::new(
+        miner1.wallet.get_pub_key(),
+        wallet1.get_pub_key(),
+        vec![one_token],
+    );
     let signed_t1 = miner1.wallet.sign(t1);
 
-
     // Update miner1 with the latest chain metadata and mine a block with the transaction
-    miner1.set_chain_meta(my_chain.get_len(), my_chain.difficulty, my_chain.get_blocks());
+    miner1.set_chain_meta(
+        my_chain.get_len(),
+        my_chain.difficulty,
+        my_chain.get_blocks(),
+    );
 
     miner1.push_transaction(signed_t1);
 
@@ -58,9 +67,12 @@ pub fn test_core() {
     assert!(res_new_mining_digest.is_ok());
     let new_mining_digest = res_new_mining_digest.unwrap();
 
-
     // Log the newly mined block with the transaction
-    info!("Block mined by {}: {}", miner1.get_name(), new_mining_digest.get_block());
+    info!(
+        "Block mined by {}: {}",
+        miner1.get_name(),
+        new_mining_digest.get_block()
+    );
 
     // Add the new block with transactions to the chain
     assert!(my_chain.add_block(new_mining_digest).is_ok());
@@ -91,7 +103,11 @@ pub fn test_core() {
 
             let mining_digest = res_mining_digest.unwrap();
             // Log and add the mined block to the chain
-            info!("Block mined by {}: {}", miner2.get_name(), mining_digest.get_block());
+            info!(
+                "Block mined by {}: {}",
+                miner2.get_name(),
+                mining_digest.get_block()
+            );
             assert!(chain.add_block(mining_digest).is_ok());
         }
     });
@@ -116,5 +132,5 @@ pub fn test_core() {
         if let Err(e) = chain.lock().unwrap().add_block(mining_digest) {
             info!("Failed to add block: {}", e);
         };
-    };
+    }
 }

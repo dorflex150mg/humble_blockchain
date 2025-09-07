@@ -5,7 +5,6 @@ pub struct Object {
 }
 
 impl Object {
-    
     pub fn get_hash(&self) -> String {
         let hash = xxh3_64(&self.bytes);
         format!("{:x}", hash).to_string()
@@ -14,7 +13,6 @@ impl Object {
     pub fn get_hash_as_integer(&self) -> u64 {
         xxh3_64(&self.bytes)
     }
-
 }
 
 pub fn from_string(string: &str) -> u64 {

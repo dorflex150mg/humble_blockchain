@@ -1,19 +1,14 @@
-use crate::block::block::{
-    self, 
-    Block, 
-    InvalidTransactionErr
-};
+use crate::block::block::{self, Block, InvalidTransactionErr};
 use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
-use std::fmt;
-use std::cmp;
 use rand::{self, Rng};
+use std::cmp;
+use std::fmt;
 
 use thiserror::Error;
 
-
-pub const ZERO_WALLET_PK: [u8; 64]  = [0u8; 64];
+pub const ZERO_WALLET_PK: [u8; 64] = [0u8; 64];
 
 #[derive(Clone)]
 pub struct ChainMeta {
@@ -29,10 +24,7 @@ pub struct MiningDigest {
 
 impl MiningDigest {
     pub fn new(block: Block, nonce: u64) -> Self {
-        MiningDigest {
-            block,
-            nonce,
-        }
+        MiningDigest { block, nonce }
     }
 
     pub fn get_block(&self) -> Block {
@@ -44,14 +36,13 @@ impl MiningDigest {
     }
 }
 
-#[derive(Error, Debug, derive_more::From, derive_more::Display)]    
+#[derive(Error, Debug, derive_more::From, derive_more::Display)]
 pub enum MiningError {
     InvalidTransactionErr(InvalidTransactionErr),
     UninitializedChainMetaErr(UninitializedChainMetaErr),
-
 }
 
-#[derive(Error, Debug)]    
+#[derive(Error, Debug)]
 pub struct UninitializedChainMetaErr;
 
 impl fmt::Display for UninitializedChainMetaErr {
@@ -67,7 +58,6 @@ pub struct Miner {
     pub transactions: Vec<Transaction>,
     pub chain_meta: Option<ChainMeta>,
 }
-
 
 impl Miner {
     pub fn new(id: u64, name: String) -> Self {
@@ -85,30 +75,30 @@ impl Miner {
         self.name.clone()
     }
 
-    pub fn mine(&mut self, mut block: Block) 
-            -> Result<MiningDigest, MiningError> {
+    pub fn mine(&mut self, mut block: Block) -> Result<MiningDigest, MiningError> {
         self.transactions = self.check_transactions();
-        let chain_meta = self.chain_meta.as_ref().ok_or(
-            MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr)
-        )?;
+        let chain_meta = self
+            .chain_meta
+            .as_ref()
+            .ok_or(MiningError::UninitializedChainMetaErr(
+                UninitializedChainMetaErr,
+            ))?;
         loop {
             let mut rng = rand::thread_rng();
-            block.nonce  = rng.gen_range(0..=u64::MAX);
+            block.nonce = rng.gen_range(0..=u64::MAX);
             let str_digest = block.calculate_hash();
             if str_digest.starts_with(&"0".repeat(chain_meta.difficulty)) {
                 let prize_transaction = Transaction::new(
-                    ZERO_WALLET_PK.to_vec(), 
-                    self.wallet.get_pub_key(), 
+                    ZERO_WALLET_PK.to_vec(),
+                    self.wallet.get_pub_key(),
                     vec![str_digest.clone()],
                 );
                 let signed_prize = self.wallet.sign(prize_transaction);
                 self.transactions.push(signed_prize); //TODO: this should be the 1st tx
-                return Ok(
-                    MiningDigest::new(
-                        self.create_new_block(str_digest, block.hash.clone()), 
-                        block.nonce,
-                    )
-                );
+                return Ok(MiningDigest::new(
+                    self.create_new_block(str_digest, block.hash.clone()),
+                    block.nonce,
+                ));
             } else {
                 continue;
             }
@@ -128,42 +118,49 @@ impl Miner {
         self.transactions = new_transactions;
     }
 
-
     pub fn push_transaction(&mut self, transaction: Transaction) {
         self.transactions.push(transaction);
     }
 
-
-    pub fn check_transactions(&self) -> 
-            Vec<Transaction>  {
-        let chain_meta = self.chain_meta
+    pub fn check_transactions(&self) -> Vec<Transaction> {
+        let chain_meta = self
+            .chain_meta
             .as_ref()
-            .ok_or(MiningError::UninitializedChainMetaErr(UninitializedChainMetaErr))
+            .ok_or(MiningError::UninitializedChainMetaErr(
+                UninitializedChainMetaErr,
+            ))
             .unwrap();
-        let filtered: Vec<Transaction> = self.transactions
+        let filtered: Vec<Transaction> = self
+            .transactions
             .iter()
-            .filter_map(|transaction| { 
-                block::check_transaction(transaction.clone(), &chain_meta.blocks).ok() 
-            }).collect();
+            .filter_map(|transaction| {
+                block::check_transaction(transaction.clone(), &chain_meta.blocks).ok()
+            })
+            .collect();
         filtered
     }
 
-    pub fn create_new_block(&mut self, hash: String, previous_hash: String) -> Block { 
-        let index = self.chain_meta.clone().unwrap().len + 1; 
+    pub fn create_new_block(&mut self, hash: String, previous_hash: String) -> Block {
+        let index = self.chain_meta.clone().unwrap().len + 1;
         let cap = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
         let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
-        let encoded_transactions: Vec<String> = capped_transactions.iter().map(|transaction| {
-            transaction.clone().into()
-        }).collect();
+        let encoded_transactions: Vec<String> = capped_transactions
+            .iter()
+            .map(|transaction| transaction.clone().into())
+            .collect();
         let data = encoded_transactions.join("");
         self.wallet.add_coin(hash.clone());
-        Block::new(index, previous_hash, data, Some(hash)) 
+        Block::new(index, previous_hash, data, Some(hash))
     }
 }
 
 impl fmt::Display for Miner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let joint_coins = self.wallet.coins.join(",");
-        write!(f, "id: {}, name: {}, wallet: {}", self.id, self.name, joint_coins)
+        write!(
+            f,
+            "id: {}, name: {}, wallet: {}",
+            self.id, self.name, joint_coins
+        )
     }
 }

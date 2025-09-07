@@ -1,8 +1,8 @@
-use uuid::Uuid;
-use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
+use serde::de::{self, Deserialize, Deserializer, MapAccess, Visitor};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
-use thiserror::Error;
 use std::fmt;
+use thiserror::Error;
+use uuid::Uuid;
 
 #[derive(Clone, PartialEq, Copy)]
 pub enum Role {
@@ -13,7 +13,7 @@ pub enum Role {
 
 #[derive(Error, Debug, derive_more::From)]
 pub enum WrongProtocolError {
-    UnknownProtocol{protocol: u32},
+    UnknownProtocol { protocol: u32 },
 }
 
 impl fmt::Display for WrongProtocolError {
@@ -36,7 +36,7 @@ impl Role {
             0 => Ok(Role::Tracker),
             1 => Ok(Role::Node),
             2 => Ok(Role::Miner),
-            _ => Err(WrongProtocolError::UnknownProtocol{protocol}),
+            _ => Err(WrongProtocolError::UnknownProtocol { protocol }),
         }
     }
 }
@@ -66,7 +66,8 @@ impl fmt::Debug for Neighbour {
 
 impl Serialize for Neighbour {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer,
+    where
+        S: Serializer,
     {
         let mut s = serializer.serialize_struct("Neighbour", 3)?;
         s.serialize_field("id", &self.id.to_string())?;
@@ -91,7 +92,7 @@ impl<'de> Visitor<'de> for RoleVisitor {
     {
         match Role::from_protocol(value) {
             Ok(v) => Ok(v),
-            Err(e) => Err(E::custom(format!("{}", e))), 
+            Err(e) => Err(E::custom(format!("{}", e))),
         }
     }
 }
@@ -105,14 +106,16 @@ impl<'de> Deserialize<'de> for Role {
     }
 }
 
-
 impl<'de> Deserialize<'de> for Neighbour {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-
-        enum Field { Id, Address, Role }
+        enum Field {
+            Id,
+            Address,
+            Role,
+        }
 
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
@@ -147,7 +150,6 @@ impl<'de> Deserialize<'de> for Neighbour {
 
         struct NeighbourVisitor;
 
-
         impl<'de> Visitor<'de> for NeighbourVisitor {
             type Value = Neighbour;
 
@@ -155,7 +157,7 @@ impl<'de> Deserialize<'de> for Neighbour {
                 formatter.write_str("An owned String")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<Neighbour, V::Error> 
+            fn visit_map<V>(self, mut map: V) -> Result<Neighbour, V::Error>
             where
                 V: MapAccess<'de>,
             {
@@ -167,33 +169,29 @@ impl<'de> Deserialize<'de> for Neighbour {
                     match key {
                         Field::Id => {
                             if id.is_some() {
-                                 return Err(de::Error::duplicate_field("id"));
+                                return Err(de::Error::duplicate_field("id"));
                             }
                             id = Some(map.next_value()?);
-                        },
+                        }
                         Field::Address => {
                             if address.is_some() {
-                                 return Err(de::Error::duplicate_field("address"));
+                                return Err(de::Error::duplicate_field("address"));
                             }
                             address = Some(map.next_value()?);
-                        },
+                        }
                         Field::Role => {
                             if role.is_some() {
-                                 return Err(de::Error::duplicate_field("role"));
+                                return Err(de::Error::duplicate_field("role"));
                             }
                             let raw = map.next_value()?;
                             role = Some(Role::from_protocol(raw).unwrap());
-                        },
+                        }
                     }
                 }
                 let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
                 let address = address.ok_or_else(|| de::Error::missing_field("address"))?;
                 let role = role.ok_or_else(|| de::Error::missing_field("role"))?;
-                let n = Neighbour {
-                    id,
-                    address,
-                    role,
-                };
+                let n = Neighbour { id, address, role };
                 Ok(n)
             }
         }
