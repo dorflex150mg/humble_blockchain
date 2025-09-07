@@ -1,8 +1,10 @@
+use std::io::Read;
+
 use base64::{Engine as _, engine::general_purpose};
 use uuid::Uuid;
-use crate::transaction::block_entry_common::{EntryDecodeError, RECORD_BLOCK_MEMBER_IDENTIFIER};
+use crate::transaction::block_entry_common::{EntryDecodeError, Sign, RECORD_BLOCK_MEMBER_IDENTIFIER};
 
-const N_RECORD_FIELDS: usize = 5; 
+const N_RECORD_FIELDS: usize = 6; 
 
 
 #[derive(Debug, Default)]
@@ -78,6 +80,21 @@ impl Into<String> for Record {
             general_purpose::STANDARD.encode(self.value),
             signature,
         )
+    }
+}
+
+
+impl Sign for Record {
+    fn get_payload(&self) -> Vec<u8> {
+        [
+            self.record_id.as_bytes().as_slice(),
+            self.poster.as_ref(),
+            self.key.as_bytes(),
+            self.value.as_ref(),
+        ].concat()
+    }
+    fn set_signature(&mut self, signature: Vec<u8>) {
+       self.signature = Some(signature);
     }
 }
 

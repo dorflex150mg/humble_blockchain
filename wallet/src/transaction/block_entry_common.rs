@@ -13,3 +13,7 @@ pub enum EntryDecodeError {
     WrongFieldCountError,
 }
 
+pub trait Sign {
+    fn get_payload(&self) -> Vec<u8>; 
+    fn set_signature(&mut self, signaure: Vec<u8>);  
+}

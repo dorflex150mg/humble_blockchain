@@ -5,9 +5,9 @@ use std::{
 };
 use uuid::Uuid;
 use base64::{Engine as _, engine::general_purpose};
-use crate::transaction::block_entry_common::{self, TRANSACTION_BLOCK_MEMBER_IDENTIFIER, EntryDecodeError};
+use crate::transaction::block_entry_common::{self, Sign, TRANSACTION_BLOCK_MEMBER_IDENTIFIER, EntryDecodeError};
 
-pub const N_TRANSACTION_FIELDS: usize = 6;
+pub const N_TRANSACTION_FIELDS: usize = 7;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Transaction {
@@ -98,3 +98,19 @@ impl fmt::Display for Transaction {
                 self.timestamp, self.sender_wallet, self.receiver_wallet, self.coins.join(" "))
     }
 }
+
+impl Sign for Transaction {
+    fn get_payload(&self) -> Vec<u8> {
+        [
+            self.transaction_id.as_bytes().as_slice(),
+            self.sender_wallet.as_ref(),
+            self.receiver_wallet.as_ref(),
+            self.coins.join(";").as_bytes(),
+        ].concat()
+    }
+
+    fn set_signature(&mut self, signature: Vec<u8>) {
+       self.signature = Some(signature);
+    }
+}
+
