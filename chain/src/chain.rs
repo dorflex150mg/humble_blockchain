@@ -1,4 +1,4 @@
-use crate::block::block::Block;
+use crate::block::block::{Block, Hash, HASH_SIZE};
 use crate::miner::miner::MiningDigest;
 
 use serde::{Deserialize, Serialize};
@@ -103,7 +103,7 @@ impl Chain {
     /// # Returns
     /// A new instance of `Chain`.
     pub fn new() -> Self {
-        let genesis_block = Block::new(0, "0".repeat(64), String::from(""), Some("0".repeat(64)));
+        let genesis_block = Block::new(0, Hash::try_from("0".repeat(HASH_SIZE)).unwrap(), String::from(""), Some(Hash::try_from("0".repeat(HASH_SIZE)).unwrap()));
         let id = Uuid::new_v4();
         let mut chain = Chain {
             id,
@@ -154,10 +154,10 @@ impl Chain {
             return Err(BlockCheckError::InvalidPrefix(self.difficulty));
         }
         let last_chain_hash = self.blocks.last().unwrap().hash.clone();
-        if *previous_hash != last_chain_hash {
+        if *previous_hash != *last_chain_hash {
             return Err(BlockCheckError::NotInChain {
                 expected: previous_hash.to_string(),
-                got: last_chain_hash,
+                got: last_chain_hash.to_string(),
             });
         }
         if digest_str != *block_hash {

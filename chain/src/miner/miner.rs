@@ -1,4 +1,4 @@
-use crate::block::block::{self, Block, InvalidTransactionErr};
+use crate::block::block::{self, Block, Hash, InvalidTransactionErr};
 use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
@@ -17,6 +17,7 @@ pub struct ChainMeta {
     pub blocks: Vec<Block>,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MiningDigest {
     block: Block,
     nonce: u64,
@@ -91,7 +92,7 @@ impl Miner {
                 let prize_transaction = Transaction::new(
                     ZERO_WALLET_PK.to_vec(),
                     self.wallet.get_pub_key(),
-                    vec![str_digest.clone()],
+                    vec![str_digest.to_string()],
                 );
                 let signed_prize = self.wallet.sign(prize_transaction);
                 self.transactions.push(signed_prize); //TODO: this should be the 1st tx
@@ -140,7 +141,7 @@ impl Miner {
         filtered
     }
 
-    pub fn create_new_block(&mut self, hash: String, previous_hash: String) -> Block {
+    pub fn create_new_block(&mut self, hash: Hash, previous_hash: Hash) -> Block {
         let index = self.chain_meta.clone().unwrap().len + 1;
         let cap = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
         let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
@@ -149,7 +150,7 @@ impl Miner {
             .map(|transaction| transaction.clone().into())
             .collect();
         let data = encoded_transactions.join("");
-        self.wallet.add_coin(hash.clone());
+        self.wallet.add_coin(hash.to_string());
         Block::new(index, previous_hash, data, Some(hash))
     }
 }

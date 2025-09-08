@@ -40,7 +40,7 @@ pub fn test_core() {
 
     // Log details about the mined block
     // Add the new block to the chain
-    let res_my_chain = my_chain.add_block(mining_digest);
+    let res_my_chain = my_chain.add_block(mining_digest.clone());
     assert!(res_my_chain.is_ok());
 
     // Create a transaction from miner1 to wallet1 using one token
@@ -66,6 +66,7 @@ pub fn test_core() {
     let res_new_mining_digest = miner1.mine(my_chain.get_last_block());
     assert!(res_new_mining_digest.is_ok());
     let new_mining_digest = res_new_mining_digest.unwrap();
+    assert_ne!(new_mining_digest, mining_digest);
 
     // Log the newly mined block with the transaction
     info!(

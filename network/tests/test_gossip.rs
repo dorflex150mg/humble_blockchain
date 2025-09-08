@@ -6,7 +6,7 @@ use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
-use transaction::transaction::Transaction;
+use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
 use tracing::{debug, info};

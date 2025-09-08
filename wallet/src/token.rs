@@ -4,7 +4,7 @@ pub const TOKEN_SIZE: usize = 64;
 
 #[derive(Debug, Error)]
 pub enum TokenConversionError {
-    #[error("Token Strings must have ascii encoing")]
+    #[error("Token Strings must have ascii encoding")]
     InvalidStringEncoding,
     #[error("Token Strings must have exactly size {}", TOKEN_SIZE)]
     WrongSizedToken,

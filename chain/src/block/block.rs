@@ -1,9 +1,10 @@
-use crate::block::block_member::{
+use crate::block::block_entry::{
     RECORD_BLOCK_MEMBER_IDENTIFIER, TRANSACTION_BLOCK_MEMBER_IDENTIFIER,
 };
 use wallet::transaction::transaction::Transaction;
 use wallet::transaction::transaction::N_TRANSACTION_FIELDS;
 
+use std::ops::Deref;
 use std::fmt;
 use std::iter::Peekable;
 use std::str::Chars;
@@ -21,6 +22,47 @@ pub const FIELD_END: char = ';';
 
 pub const N_RECORD_FIELDS: usize = 3;
 
+pub const HASH_SIZE: usize = 64;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Hash(String);
+
+#[derive(Debug, Error)]
+pub enum HashError {
+    #[error("Hash Strings must have ascii encoding.")]
+    InvalidHashStringhError,
+    #[error("Hash Strings must have exactly size {}", HASH_SIZE)]
+    WrongSizeHashError,
+}
+
+impl TryFrom<String> for Hash {
+    type Error = HashError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if value.len() != HASH_SIZE {
+            return Err(HashError::WrongSizeHashError);
+        }
+        if !value.is_ascii() {
+            return Err(HashError::InvalidHashStringhError)
+        }
+        Ok(Self(value))
+    }
+}
+
+
+impl Deref for Hash {
+    type Target = String;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl fmt::Display for Hash {
+
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 macro_rules! get_block_entries {
     ($block: ident, $type_name: ty) => {{
         assert_impl_all!($type_name: Into<String>);
@@ -37,15 +79,16 @@ macro_rules! get_block_entries {
     }};
 }
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Block {
     pub index: usize,
-    pub previous_hash: String,
-    pub hash: String,
+    pub previous_hash: Hash,
+    pub hash: Hash,
     pub data: String,
     pub timestamp: u64,
     pub nonce: u64,
 }
+
 
 #[derive(Error, Debug)]
 pub enum InvalidTransactionErr {
@@ -99,7 +142,7 @@ pub fn check_transaction(
 
 impl Block {
     #[allow(clippy::unwrap_used)]
-    pub fn new(index: usize, previous_hash: String, data: String, hash: Option<String>) -> Self {
+    pub fn new(index: usize, previous_hash: Hash, data: String, hash: Option<Hash>) -> Self {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -148,12 +191,12 @@ impl Block {
         transactions
     }
 
-    pub fn get_hash(&self) -> String {
+    pub fn get_hash(&self) -> Hash {
         self.hash.clone()
     }
 
-    #[allow(clippy::uninlined_format_args)]
-    pub fn calculate_hash(&self) -> String {
+    #[allow(clippy::uninlined_format_args, clippy::unwrap_used)]
+    pub fn calculate_hash(&self) -> Hash {
         let str_block = format!(
             "{}{}{}{}{}{}",
             self.hash, self.previous_hash, self.data, self.timestamp, self.index, self.nonce,
@@ -161,7 +204,7 @@ impl Block {
         let mut hasher = Sha256::new();
         hasher.update(str_block);
         let digest = hasher.finalize();
-        format!("{:x}", digest)
+        Hash::try_from(format!("{:x}", digest)).unwrap() //guaranteed to work.
     }
 }
 
