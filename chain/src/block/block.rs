@@ -24,7 +24,7 @@ pub const N_RECORD_FIELDS: usize = 3;
 
 pub const HASH_SIZE: usize = 64;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Hash(String);
 
 #[derive(Debug, Error)]
@@ -45,6 +45,12 @@ impl TryFrom<String> for Hash {
             return Err(HashError::InvalidHashStringhError)
         }
         Ok(Self(value))
+    }
+}
+
+impl Default for Hash {
+    fn default() -> Self {
+        Self("0".repeat(HASH_SIZE))
     }
 }
 
