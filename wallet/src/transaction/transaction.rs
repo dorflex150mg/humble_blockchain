@@ -23,7 +23,7 @@ impl Transaction {
     pub fn new(sender: Vec<u8>, receiver: Vec<u8>, coins: Vec<String>) -> Self {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_secs();
         Transaction {
             block_entry_type_id: BlockMemberId::Transaction,
@@ -76,10 +76,8 @@ impl Into<String> for Transaction {
         let block_entry_type_id: u8 = self.block_entry_type_id.into();
 
         let signature = match &self.signature {
-            Some(_) => general_purpose::STANDARD
-                .encode(self.signature.as_ref().unwrap().as_slice())
-                .to_string(),
-            None => "".to_string(),
+            Some(s) => general_purpose::STANDARD.encode(s.as_slice()).to_string(),
+            None => String::new(),
         };
 
         format!(

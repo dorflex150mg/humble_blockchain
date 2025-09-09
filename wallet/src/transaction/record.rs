@@ -62,10 +62,8 @@ impl Into<String> for Record {
     fn into(self) -> String {
         let block_entry_type_id: u8 = self.block_entry_type_id.into();
         let signature = match &self.signature {
-            Some(_) => general_purpose::STANDARD
-                .encode(self.signature.as_ref().unwrap().as_slice())
-                .to_string(),
-            None => "".to_string(),
+            Some(s) => general_purpose::STANDARD.encode(s.as_slice()).to_string(),
+            None => String::new(),
         };
 
         format!(

@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::token::{Token, TOKEN_SIZE};
 use crate::transaction::block_entry_common::Sign;
 use crate::transaction::transaction::Transaction;
 
@@ -22,8 +22,11 @@ pub enum TransactionErr {
     InsuficientBalance,
     #[error("The Transaction token amount must be greater than 0.")]
     ZeroAmount,
+    #[error("One or more Tokens used in this transaction were not valid")]
+    InvalidToken,
 }
 
+#[allow(clippy::unwrap_used)]
 fn generate_key_pair() -> (EcdsaKeyPair, SystemRandom) {
     let rng = SystemRandom::new();
     let pkcs8_bytes = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).unwrap();
@@ -64,6 +67,7 @@ impl Wallet {
         Ok(())
     }
 
+    #[allow(clippy::unwrap_used)]
     pub fn sign<T: Sign>(&self, mut entry: T) -> T {
         let vec = entry.get_payload();
         let bytes = &vec;
@@ -77,7 +81,7 @@ impl Wallet {
         entry
     }
 
-    #[allow(dead_code)]
+    #[allow(dead_code, clippy::unwrap_used)]
     pub fn submit_transaction(
         &mut self,
         receiver: Vec<u8>,
@@ -87,10 +91,14 @@ impl Wallet {
             return Err(TransactionErr::ZeroAmount);
         }
         self.check_balance(amount)?;
-        let coins: Vec<String> = (0..amount)
+        let coin_res: Vec<String> = (0..amount)
             .map(|_| self.coins.pop().unwrap())
-            .map(|coin| str::from_utf8((*coin).as_slice()).unwrap().to_owned())
-            .collect();
+            .map(|coin| {
+                String::from_utf8((*coin).to_vec()).map_err(|_| TransactionErr::InvalidToken)
+            })
+            .collect::<Result<Vec<String>, _>>()?;
+        let coins = coin_res.iter().map(|c| c.to_string()).collect();
+
         Ok(self.sign(Transaction::new(
             self.key_pair.public_key().as_ref().to_vec(),
             receiver,
@@ -104,10 +112,11 @@ impl fmt::Display for Wallet {
         let joint_coins: String = self
             .coins
             .iter()
-            .map(|coin| str::from_utf8((**coin).as_slice()).unwrap().to_owned())
+            .map(|coin| String::from_utf8((*coin).to_vec()).unwrap_or("*".repeat(TOKEN_SIZE)))
             .collect::<Vec<String>>()
-            .join("");
-        write!(f, "{{\n{}}}", joint_coins)
+            .join(", ");
+        let pub_key = self.get_pub_key();
+        write!(f, "{pub_key:?}: {joint_coins}")
     }
 }
 
