@@ -1,5 +1,5 @@
 use crate::transaction::block_entry_common::{
-    EntryDecodeError, Sign, RECORD_BLOCK_MEMBER_IDENTIFIER,
+    EntryDecodeError, Sign, BlockMemberId,
 };
 use base64::{engine::general_purpose, Engine as _};
 use uuid::Uuid;
@@ -8,7 +8,7 @@ const N_RECORD_FIELDS: usize = 6;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Record {
-    block_entry_type_id: u8,
+    block_entry_type_id: BlockMemberId,
     record_id: Uuid,
     poster: Vec<u8>,
     key: String,
@@ -19,7 +19,7 @@ pub struct Record {
 impl Record {
     pub fn new(poster: Vec<u8>, key: impl Into<String>, value: Vec<u8>) -> Self {
         Record {
-            block_entry_type_id: RECORD_BLOCK_MEMBER_IDENTIFIER,
+            block_entry_type_id: BlockMemberId::Record,
             record_id: Uuid::new_v4(),
             poster,
             key: key.into(),
@@ -36,10 +36,12 @@ impl TryFrom<String> for Record {
         if fields.len() < N_RECORD_FIELDS {
             return Err(EntryDecodeError::WrongFieldCountError);
         }
-        let ident = fields[0]
+        let ident: BlockMemberId = fields[0]
             .parse::<u8>()
-            .map_err(|_| EntryDecodeError::WrongTypeError)?;
-        if ident != RECORD_BLOCK_MEMBER_IDENTIFIER {
+            .map_err(|_| EntryDecodeError::InvalidTypeError)?
+            .try_into()
+            .map_err(|_| EntryDecodeError::InvalidTypeError)?;
+        if ident != BlockMemberId::Record {
             return Err(EntryDecodeError::WrongTypeError);
         }
         let signature = match fields[5] {
@@ -60,6 +62,7 @@ impl TryFrom<String> for Record {
 #[allow(clippy::from_over_into)]
 impl Into<String> for Record {
     fn into(self) -> String {
+        let block_entry_type_id: u8 = self.block_entry_type_id.into();
         let signature = match &self.signature {
             Some(_) => general_purpose::STANDARD
                 .encode(self.signature.as_ref().unwrap().as_slice())
@@ -69,7 +72,7 @@ impl Into<String> for Record {
 
         format!(
             "{};{};{};{};{};{}",
-            self.block_entry_type_id,
+            block_entry_type_id,
             self.record_id.as_hyphenated(),
             general_purpose::STANDARD.encode(self.poster),
             self.key,

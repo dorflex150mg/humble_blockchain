@@ -1,5 +1,5 @@
 use crate::transaction::block_entry_common::{
-    self, EntryDecodeError, Sign, TRANSACTION_BLOCK_MEMBER_IDENTIFIER,
+    BlockMemberId, EntryDecodeError, Sign
 };
 use base64::{engine::general_purpose, Engine as _};
 use std::{
@@ -12,7 +12,7 @@ pub const N_TRANSACTION_FIELDS: usize = 7;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Transaction {
-    pub block_entry_type_id: u8,
+    pub block_entry_type_id: BlockMemberId,
     pub transaction_id: Uuid,
     pub sender_wallet: Vec<u8>,
     pub receiver_wallet: Vec<u8>,
@@ -28,7 +28,7 @@ impl Transaction {
             .unwrap()
             .as_secs();
         Transaction {
-            block_entry_type_id: block_entry_common::TRANSACTION_BLOCK_MEMBER_IDENTIFIER,
+            block_entry_type_id: BlockMemberId::Transaction,
             transaction_id: Uuid::new_v4(),
             sender_wallet: sender,
             receiver_wallet: receiver,
@@ -46,10 +46,12 @@ impl TryFrom<String> for Transaction {
         if fields.len() < N_TRANSACTION_FIELDS {
             return Err(EntryDecodeError::WrongFieldCountError);
         }
-        let ident = fields[0]
+        let ident: BlockMemberId = fields[0]
             .parse::<u8>()
-            .map_err(|_| EntryDecodeError::WrongTypeError)?;
-        if ident != TRANSACTION_BLOCK_MEMBER_IDENTIFIER {
+            .map_err(|_| EntryDecodeError::InvalidTypeError)?
+            .try_into()
+            .map_err(|_| EntryDecodeError::InvalidTypeError)?;
+        if ident != BlockMemberId::Transaction {
             return Err(EntryDecodeError::WrongTypeError);
         }
         let signature = match fields[6] {
@@ -73,6 +75,7 @@ impl TryFrom<String> for Transaction {
 impl Into<String> for Transaction {
     fn into(self) -> String {
         let joined_coins = self.coins.join("");
+        let block_entry_type_id: u8 = self.block_entry_type_id.into();
 
         let signature = match &self.signature {
             Some(_) => general_purpose::STANDARD
@@ -83,7 +86,7 @@ impl Into<String> for Transaction {
 
         format!(
             "{};{};{};{};{};{};{};",
-            self.block_entry_type_id,
+            block_entry_type_id,
             self.transaction_id.as_hyphenated(),
             general_purpose::STANDARD.encode(&self.sender_wallet),
             general_purpose::STANDARD.encode(&self.receiver_wallet),
