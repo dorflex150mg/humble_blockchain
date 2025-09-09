@@ -8,7 +8,7 @@ pub const RECORD_BLOCK_MEMBER_IDENTIFIER: u8 = 1;
 #[derive(Debug, Error)]
 pub enum BlockIdError {
     #[error("Tried to convert invalid id {} to a BlockMemberId.", {0})]
-    InvalidIdError(u8)
+    InvalidIdError(u8),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -25,7 +25,7 @@ impl TryFrom<u8> for BlockMemberId {
             TRANSACTION_BLOCK_MEMBER_IDENTIFIER => Ok(Self::Transaction),
             RECORD_BLOCK_MEMBER_IDENTIFIER => Ok(Self::Record),
             _ => Err(BlockIdError::InvalidIdError(value)),
-        } 
+        }
     }
 }
 

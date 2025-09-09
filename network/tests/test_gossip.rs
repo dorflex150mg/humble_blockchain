@@ -9,8 +9,6 @@ use tokio::sync::mpsc;
 use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
-use tracing::{debug, info};
-
 /// Creates a mock transaction between two wallets with a made-up token.
 ///
 /// # Returns

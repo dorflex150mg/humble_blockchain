@@ -7,9 +7,6 @@ members = [
 ]
 
 
-[workspace.lints.rust]
-missing_docs = "warn"
-
 [workspace.lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
@@ -22,4 +19,4 @@ cast_possible_truncation = "warn"
 cast_precision_loss = "warn"
 too_many_arguments = "warn"
 large_enum_variant = "warn"
-#pedantic = "warn"
+pedantic = "warn"

@@ -59,7 +59,7 @@ fn test_signature() {
     let sender_wallet = Wallet::new();
     let sender = sender_wallet.get_pub_key();
     let receiver = Wallet::new().get_pub_key();
-    let mut test_transaction = Transaction::new(sender, receiver, vec![some_token]);
+    let test_transaction = Transaction::new(sender, receiver, vec![some_token]);
     let same_transaction = test_transaction.clone();
     let test_transaction = sender_wallet.sign(test_transaction);
     assert_ne!(test_transaction, same_transaction);

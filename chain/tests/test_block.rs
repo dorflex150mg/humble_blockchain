@@ -1,5 +1,5 @@
 use chain::block::block::{Block, Hash, HASH_SIZE};
-use wallet::{transaction::{self, transaction::Transaction}, wallet::Wallet};
+use wallet::{transaction::transaction::Transaction, wallet::Wallet};
 
 #[test]
 fn test_hash() {
@@ -11,17 +11,19 @@ fn test_hash() {
 
 #[test]
 fn test_block() {
-
     let hash = Hash::try_from("1".repeat(64)).unwrap();
     let block = Block::new(0, hash, String::new(), None);
     let empty: Vec<Transaction> = vec![];
-    assert_eq!(block.get_transactions(), empty); 
-    
-    let transaction = Transaction::new(Wallet::new().get_pub_key(), Wallet::new().get_pub_key(), vec![Hash::default().to_string()]);
-    let new_block = Block::new(0, Hash::default(), transaction.clone().into(), None); 
+    assert_eq!(block.get_transactions(), empty);
+
+    let transaction = Transaction::new(
+        Wallet::new().get_pub_key(),
+        Wallet::new().get_pub_key(),
+        vec![Hash::default().to_string()],
+    );
+    let new_block = Block::new(0, Hash::default(), transaction.clone().into(), None);
     //assert_eq!(new_block.get_transactions(), vec![transaction.clone()]);
     assert_eq!(new_block.calculate_hash().len(), HASH_SIZE);
-    let new_block2 = Block::new(0, Hash::default(), transaction.clone().into(), None); 
+    let new_block2 = Block::new(0, Hash::default(), transaction.clone().into(), None);
     assert_eq!(new_block.calculate_hash(), new_block2.calculate_hash());
 }
-

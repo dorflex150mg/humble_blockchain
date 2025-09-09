@@ -1,6 +1,4 @@
-use crate::transaction::block_entry_common::{
-    BlockMemberId, EntryDecodeError, Sign
-};
+use crate::transaction::block_entry_common::{BlockMemberId, EntryDecodeError, Sign};
 use base64::{engine::general_purpose, Engine as _};
 use std::{
     fmt,

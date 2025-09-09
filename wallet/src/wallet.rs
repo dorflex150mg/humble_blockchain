@@ -1,3 +1,4 @@
+use crate::token::Token;
 use crate::transaction::block_entry_common::Sign;
 use crate::transaction::transaction::Transaction;
 
@@ -9,13 +10,15 @@ use std::fmt;
 
 pub struct Wallet {
     pub key_pair: EcdsaKeyPair,
-    pub coins: Vec<String>,
+    pub coins: Vec<Token>,
     rng: SystemRandom,
 }
 
 #[derive(Debug, Error)]
 pub enum TransactionErr {
-    #[error("The Transaction requires an amount of tokens greater than this Wallet has available.")]
+    #[error(
+        "The Transaction requires an amount of tokens greater than this Wallet has available."
+    )]
     InsuficientBalance,
     #[error("The Transaction token amount must be greater than 0.")]
     ZeroAmount,
@@ -44,12 +47,12 @@ impl Wallet {
         self.key_pair.public_key().as_ref().to_vec().clone()
     }
 
-    pub fn add_coin(&mut self, coin: String) {
+    pub fn add_coin(&mut self, coin: Token) {
         self.coins.push(coin);
     }
 
     #[allow(dead_code)]
-    pub fn get_coins(&self) -> Vec<String> {
+    pub fn get_coins(&self) -> Vec<Token> {
         self.coins.to_vec()
     }
 
@@ -84,7 +87,10 @@ impl Wallet {
             return Err(TransactionErr::ZeroAmount);
         }
         self.check_balance(amount)?;
-        let coins: Vec<String> = (0..amount).map(|_| self.coins.pop().unwrap()).collect();
+        let coins: Vec<String> = (0..amount)
+            .map(|_| self.coins.pop().unwrap())
+            .map(|coin| str::from_utf8((*coin).as_slice()).unwrap().to_owned())
+            .collect();
         Ok(self.sign(Transaction::new(
             self.key_pair.public_key().as_ref().to_vec(),
             receiver,
@@ -95,7 +101,12 @@ impl Wallet {
 
 impl fmt::Display for Wallet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let joint_coins = self.coins.join(",\n");
+        let joint_coins: String = self
+            .coins
+            .iter()
+            .map(|coin| str::from_utf8((**coin).as_slice()).unwrap().to_owned())
+            .collect::<Vec<String>>()
+            .join("");
         write!(f, "{{\n{}}}", joint_coins)
     }
 }

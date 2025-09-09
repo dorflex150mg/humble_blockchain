@@ -14,8 +14,8 @@ use tokio::sync::{
     mpsc::{self, error::TryRecvError, Sender},
     Mutex,
 };
-use wallet::transaction::transaction::Transaction;
 use wallet::transaction::block_entry_common::EntryDecodeError;
+use wallet::transaction::transaction::Transaction;
 
 use std::{
     collections::HashMap,

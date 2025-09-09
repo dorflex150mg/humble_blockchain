@@ -150,14 +150,21 @@ impl Miner {
             .map(|transaction| transaction.clone().into())
             .collect();
         let data = encoded_transactions.join("");
-        self.wallet.add_coin(hash.to_string());
+        self.wallet.add_coin(hash.clone().try_into().unwrap());
         Block::new(index, previous_hash, data, Some(hash))
     }
 }
 
 impl fmt::Display for Miner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let joint_coins = self.wallet.coins.join(",");
+        let joint_coins = self
+            .wallet
+            .coins
+            .iter()
+            .map(|coin| (*coin).clone().try_into().unwrap())
+            .collect::<Vec<String>>()
+            .join(",");
+
         write!(
             f,
             "id: {}, name: {}, wallet: {}",

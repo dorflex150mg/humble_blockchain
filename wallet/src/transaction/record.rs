@@ -1,6 +1,4 @@
-use crate::transaction::block_entry_common::{
-    EntryDecodeError, Sign, BlockMemberId,
-};
+use crate::transaction::block_entry_common::{BlockMemberId, EntryDecodeError, Sign};
 use base64::{engine::general_purpose, Engine as _};
 use uuid::Uuid;
 
@@ -92,6 +90,7 @@ impl Sign for Record {
         ]
         .concat()
     }
+
     fn set_signature(&mut self, signature: Vec<u8>) {
         self.signature = Some(signature);
     }

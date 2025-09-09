@@ -103,7 +103,12 @@ impl Chain {
     /// # Returns
     /// A new instance of `Chain`.
     pub fn new() -> Self {
-        let genesis_block = Block::new(0, Hash::try_from("0".repeat(HASH_SIZE)).unwrap(), String::from(""), Some(Hash::try_from("0".repeat(HASH_SIZE)).unwrap()));
+        let genesis_block = Block::new(
+            0,
+            Hash::try_from("0".repeat(HASH_SIZE)).unwrap(),
+            String::from(""),
+            Some(Hash::try_from("0".repeat(HASH_SIZE)).unwrap()),
+        );
         let id = Uuid::new_v4();
         let mut chain = Chain {
             id,
@@ -122,6 +127,10 @@ impl Chain {
     /// The number of blocks in the chain.
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Verifies the validity of a block based on its data, previous hash, and current difficulty.

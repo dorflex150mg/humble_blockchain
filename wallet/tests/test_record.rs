@@ -1,9 +1,8 @@
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use uuid::Uuid;
 
-use base64::{engine::general_purpose, Engine as _};
 use wallet::transaction::record::Record;
 use wallet::wallet::Wallet;
 
@@ -24,7 +23,7 @@ fn round_trip() {
         fields[0].parse::<u8>().unwrap(),
         RECORD_BLOCK_MEMBER_IDENTIFIER
     );
-    assert!(Uuid::parse_str(&fields[1]).is_ok());
+    assert!(Uuid::parse_str(fields[1]).is_ok());
     assert_eq!(fields[2].len(), 88);
     assert_eq!(fields[3], "some id");
     assert_eq!(fields[5], "");

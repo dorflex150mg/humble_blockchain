@@ -8,6 +8,19 @@
 //! - `transaction` for transactions
 //! - `network` for DHT, node, and object management                                   // Explicitly forbid dangerous practices
 
+#![warn(missing_docs)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![deny(clippy::unimplemented)]
+#![deny(clippy::dbg_macro)]
+#![deny(clippy::wildcard_imports)]
+#![warn(clippy::cast_possible_truncation)]
+#![warn(clippy::cast_precision_loss)]
+#![warn(clippy::too_many_arguments)]
+#![warn(clippy::large_enum_variant)]
+#![warn(clippy::pedantic)]
+
 use std::sync::Once;
 use tracing_subscriber::fmt::writer::TestWriter;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};

@@ -1,12 +1,14 @@
 use crate::block::block_entry::{
     RECORD_BLOCK_MEMBER_IDENTIFIER, TRANSACTION_BLOCK_MEMBER_IDENTIFIER,
 };
+use wallet::token::Token;
+use wallet::token::TokenConversionError;
 use wallet::transaction::transaction::Transaction;
 use wallet::transaction::transaction::N_TRANSACTION_FIELDS;
 
-use std::ops::Deref;
 use std::fmt;
 use std::iter::Peekable;
+use std::ops::Deref;
 use std::str::Chars;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -35,6 +37,27 @@ pub enum HashError {
     WrongSizeHashError,
 }
 
+impl TryFrom<Token> for Hash {
+    type Error = HashError;
+    fn try_from(value: Token) -> Result<Self, Self::Error> {
+        let string =
+            str::from_utf8((*value).as_slice()).map_err(|_| HashError::InvalidHashStringhError)?;
+        Ok(Self(string.to_owned()))
+    }
+}
+
+impl TryInto<Token> for Hash {
+    type Error = TokenConversionError;
+    fn try_into(self) -> Result<Token, Self::Error> {
+        Ok(Token::new(
+            self.0
+                .as_bytes()
+                .try_into()
+                .map_err(|_| TokenConversionError::WrongSizedToken)?,
+        ))
+    }
+}
+
 impl TryFrom<String> for Hash {
     type Error = HashError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -42,7 +65,7 @@ impl TryFrom<String> for Hash {
             return Err(HashError::WrongSizeHashError);
         }
         if !value.is_ascii() {
-            return Err(HashError::InvalidHashStringhError)
+            return Err(HashError::InvalidHashStringhError);
         }
         Ok(Self(value))
     }
@@ -54,7 +77,6 @@ impl Default for Hash {
     }
 }
 
-
 impl Deref for Hash {
     type Target = String;
     fn deref(&self) -> &Self::Target {
@@ -63,7 +85,6 @@ impl Deref for Hash {
 }
 
 impl fmt::Display for Hash {
-
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -94,7 +115,6 @@ pub struct Block {
     pub timestamp: u64,
     pub nonce: u64,
 }
-
 
 #[derive(Error, Debug)]
 pub enum InvalidTransactionErr {
