@@ -3,6 +3,7 @@ use crate::block::block_entry::{
 };
 use wallet::token::Token;
 use wallet::token::TokenConversionError;
+use wallet::token::TOKEN_SIZE;
 use wallet::transaction::transaction::Transaction;
 use wallet::transaction::transaction::N_TRANSACTION_FIELDS;
 
@@ -37,24 +38,18 @@ pub enum HashError {
     WrongSizeHashError,
 }
 
-impl TryFrom<Token> for Hash {
-    type Error = HashError;
-    fn try_from(value: Token) -> Result<Self, Self::Error> {
-        let string =
-            str::from_utf8((*value).as_slice()).map_err(|_| HashError::InvalidHashStringhError)?;
-        Ok(Self(string.to_owned()))
+#[allow(clippy::unwrap_used)] // Token is guaranteed to have valid content.
+impl From<Token> for Hash {
+    fn from(value: Token) -> Self {
+        Hash(str::from_utf8((*value).as_slice()).unwrap().to_owned())
     }
 }
 
-impl TryInto<Token> for Hash {
-    type Error = TokenConversionError;
-    fn try_into(self) -> Result<Token, Self::Error> {
-        Ok(Token::new(
-            self.0
-                .as_bytes()
-                .try_into()
-                .map_err(|_| TokenConversionError::WrongSizedToken)?,
-        ))
+#[allow(clippy::unwrap_used)] // Hash is guaranteed to have the correct size.
+impl Into<Token> for Hash {
+    fn into(self) -> Token {
+        let array: [u8; TOKEN_SIZE] = self.0.as_bytes().try_into().unwrap();
+        Token::new(array)
     }
 }
 

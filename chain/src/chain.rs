@@ -103,12 +103,7 @@ impl Chain {
     /// # Returns
     /// A new instance of `Chain`.
     pub fn new() -> Self {
-        let genesis_block = Block::new(
-            0,
-            Hash::try_from("0".repeat(HASH_SIZE)).unwrap(),
-            String::from(""),
-            Some(Hash::try_from("0".repeat(HASH_SIZE)).unwrap()),
-        );
+        let genesis_block = Block::new(0, Hash::default(), String::from(""), Some(Hash::default()));
         let id = Uuid::new_v4();
         let mut chain = Chain {
             id,
@@ -117,6 +112,7 @@ impl Chain {
             difficulty: 1,
         };
         let genesis_mining_digest = MiningDigest::new(genesis_block, 0);
+        #[allow(clippy::unwrap_used)]
         chain.add_block(genesis_mining_digest).unwrap();
         chain
     }
@@ -162,7 +158,7 @@ impl Chain {
         if !digest_str.starts_with(&"0".repeat(self.difficulty)) {
             return Err(BlockCheckError::InvalidPrefix(self.difficulty));
         }
-        let last_chain_hash = self.blocks.last().unwrap().hash.clone();
+        let last_chain_hash = self.get_last_block().hash.clone();
         if *previous_hash != *last_chain_hash {
             return Err(BlockCheckError::NotInChain {
                 expected: previous_hash.to_string(),
@@ -184,7 +180,7 @@ impl Chain {
     /// # Arguments
     /// * `block_timestamp` - The timestamp of the block being checked.
     fn check_difficulty(&mut self, block_timestamp: u64) {
-        if block_timestamp < self.blocks.iter().last().unwrap().timestamp + INTERVAL {
+        if block_timestamp < self.get_last_block().timestamp + INTERVAL {
             self.difficulty += 1;
             debug!("Difficulty increased: {}", self.difficulty);
         }
@@ -194,6 +190,7 @@ impl Chain {
     ///
     /// # Returns
     /// The last `Block` in the chain.
+    #[allow(unwrap_used)]
     pub fn get_last_block(&self) -> Block {
         self.blocks.iter().last().unwrap().clone() // It is impossible to have a chain with 0 blocks.
     }
@@ -210,7 +207,7 @@ impl Chain {
         let block = mining_digest.get_block();
         let nonce = mining_digest.get_nonce();
         if block.index != 0 {
-            let last_block = self.blocks.iter().last().unwrap();
+            let last_block = self.get_last_block();
             let str_block = format!(
                 "{}{}{}{}{}{}",
                 last_block.hash,
@@ -239,7 +236,7 @@ impl Chain {
 
     /// Prints details of the last block in the chain.
     pub fn print_last_block(&self) {
-        println!("{}", self.blocks.last().unwrap());
+        println!("{}", self.get_last_block());
     }
 
     /// Retrieves all the blocks in the chain.

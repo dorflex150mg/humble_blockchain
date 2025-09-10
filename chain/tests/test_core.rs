@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 use chain::chain::Chain;
+use chain::miner::miner::ChainMeta;
 #[cfg(test)]
 use chain::miner::miner::Miner;
 use wallet::transaction::transaction::Transaction;
@@ -19,8 +20,14 @@ pub fn test_core() {
     let mut my_chain = Chain::new();
     my_chain.print_last_block();
 
+    let chain_meta = ChainMeta {
+        len: my_chain.get_len(),
+        difficulty: my_chain.difficulty,
+        blocks: my_chain.get_blocks(),
+    };
+
     // Create the first miner
-    let mut miner1 = Miner::new(1, String::from("Miner 1"));
+    let mut miner1 = Miner::new(1, String::from("Miner 1"), chain_meta);
     info!("Miner created -> {}", miner1);
 
     // Create a wallet for future transactions
@@ -79,11 +86,19 @@ pub fn test_core() {
     assert!(my_chain.add_block(new_mining_digest).is_ok());
 
     // Shared blockchain instance for multiple miners
+    let difficulty = my_chain.difficulty;
+    let len = my_chain.get_len();
+    let blocks = my_chain.get_blocks();
     let chain_arc = Arc::new(Mutex::new(my_chain));
     let other_chain_arc = Arc::clone(&chain_arc);
 
+    let chain_meta = ChainMeta {
+        len,
+        difficulty,
+        blocks,
+    };
     // Create the second miner
-    let mut miner2 = Miner::new(2, String::from("Miner 2"));
+    let mut miner2 = Miner::new(2, String::from("Miner 2"), chain_meta);
 
     // Spawn a new thread for miner2 to mine blocks concurrently
     let iterations = 2;
