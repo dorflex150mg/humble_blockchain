@@ -1,6 +1,5 @@
 use crate::node::{
-    gossip,
-    gossip::GossipError,
+    gossip::{self, GossipError, GossipReply},
     neighbour::{Neighbour, Role},
     protocol,
     receiver::Receiver,
@@ -8,7 +7,7 @@ use crate::node::{
     theme::Theme,
 };
 use chain::chain::Chain;
-use chain::miner::miner::Miner;
+use chain::miner::miner::{ChainMeta, Miner};
 use tokio::sync::{
     broadcast,
     mpsc::{self, error::TryRecvError, Sender},
@@ -120,11 +119,6 @@ impl Node {
         let mut transaction_buffer = None;
         let mut miner = None;
 
-        if role == Role::Miner {
-            transaction_buffer = Some(vec![]);
-            miner = Some(Arc::new(Mutex::new(Miner::new(1, "miner".to_string()))));
-            //TODO: generate id and name
-        }
         Node {
             id: Uuid::new_v4(),
             role,
@@ -208,9 +202,23 @@ impl Node {
             ));
 
             //Task 3: If this is miner, try to mine a block.
-            let miner_worker_handle = self.miner.clone();
-            let chain = self.chain.clone();
-            tokio::spawn(try_mine(self.id, miner_worker_handle, chain, mining_sender));
+            if self.role == Role::Miner {
+                let chain = self.chain.clone();
+                let chain_meta = ChainMeta {
+                    len: chain.len(),
+                    difficulty: chain.difficulty,
+                    blocks: chain.get_blocks(),
+                };
+                self.transaction_buffer = Some(vec![]);
+                self.miner = Some(Arc::new(Mutex::new(Miner::new(
+                    1,
+                    "miner".to_string(),
+                    chain_meta,
+                ))));
+                //TODO: generate id and name
+                let miner_worker_handle = self.miner.clone();
+                tokio::spawn(try_mine(self.id, miner_worker_handle, chain, mining_sender));
+            }
 
             //Task 3: Listen to possible updates the peers might have shared.
             let _ = self
@@ -278,6 +286,7 @@ impl Node {
     // Gossip and Neighbor Management
     // -------------------------------
 
+    #[allow(clippy::unwrap_used)] // Random index guaranteed to be in range.
     fn get_random_neighbours(&self) -> Vec<Neighbour> {
         let mut neighbours = vec![];
         let mut rng = rand::thread_rng();
@@ -342,7 +351,9 @@ impl Node {
                 }
             }
             if let Some(t) = outter_transaction {
-                push_transaction(self.miner.as_mut().unwrap(), t.clone()).await;
+                if let Some(miner) = self.miner.as_mut() {
+                    push_transaction(miner, t.clone()).await;
+                }
             }
         }
     }
@@ -385,15 +396,14 @@ impl Node {
         &mut self,
         sender: String,
         mut buffer: Vec<u8>,
-    ) -> IOResult<Option<Box<dyn Reply>>> {
+    ) -> Result<Option<Box<dyn Reply>>, GossipError> {
         buffer.remove(0);
         let str_buffer = str::from_utf8(&buffer)
-            .expect("Malformed request to enter network -- Unable to parse")
+            .map_err(|_| GossipError::InvalidReplyError)?
             .trim();
         let cleared = Node::sanitize(str_buffer.to_string());
-        let neighbour: Neighbour = serde_json::from_str(&cleared).expect(
-            "Malformed neighbour string -- Unable to create neighbour from enter network request",
-        );
+        let neighbour: Neighbour =
+            serde_json::from_str(&cleared).map_err(|_| GossipError::InvalidReplyError)?;
 
         let hash_neighbour = neighbour.clone();
         self.neighbours
@@ -414,16 +424,18 @@ impl Node {
     }
 
     /// Adds a neighbour to this node's network from the provided buffer.
-    pub async fn add_neighbour(&mut self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>> {
+    pub async fn add_neighbour(
+        &mut self,
+        mut buffer: Vec<u8>,
+    ) -> Result<Option<Box<dyn Reply>>, GossipError> {
         buffer.remove(0);
 
-        let str_buffer =
-            str::from_utf8(&buffer).expect("Malformed request to add neighbour -- Unable to parse");
+        let str_buffer = str::from_utf8(&buffer).map_err(|_| GossipError::InvalidReplyError)?;
         debug!("Received neighbour: {}", str_buffer);
 
         let cleared = Node::sanitize(str_buffer.to_string());
-        let neighbour: Neighbour = serde_json::from_str(&cleared)
-            .expect("Malformed neighbour string -- Unable to create neighbour from request");
+        let neighbour: Neighbour =
+            serde_json::from_str(&cleared).map_err(|_| GossipError::InvalidReplyError)?;
 
         let hash_neighbour = neighbour.clone();
         self.neighbours
@@ -439,17 +451,18 @@ impl Node {
     // -------------------------------
 
     /// Adds a transaction from the buffer, if this node is a miner.
-    pub async fn add_transaction(&self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>> {
+    pub async fn add_transaction(
+        &self,
+        mut buffer: Vec<u8>,
+    ) -> Result<Option<Box<dyn Reply>>, GossipError> {
         if self.role != Role::Miner {
             return Ok(None); // We can enhance this later to return an error
         }
 
         buffer.remove(0);
-        let str_buffer = str::from_utf8(&buffer)
-            .expect("Malformed request to add transaction -- Unable to parse");
-
+        let str_buffer = str::from_utf8(&buffer).map_err(|_| GossipError::InvalidReplyError)?;
         let transaction = Transaction::try_from(str_buffer.to_string())
-            .expect("Malformed transaction string -- Unable to create transaction from request");
+            .map_err(|_| GossipError::InvalidReplyError)?;
 
         Ok(Some(Box::new(transaction)))
     }
@@ -459,14 +472,16 @@ impl Node {
     // -------------------------------
 
     /// Receives a chain from the buffer and returns it.
-    pub async fn get_chain(&mut self, mut buffer: Vec<u8>) -> IOResult<Option<Box<dyn Reply>>> {
+    pub async fn get_chain(
+        &mut self,
+        mut buffer: Vec<u8>,
+    ) -> Result<Option<Box<dyn Reply>>, GossipError> {
         buffer.remove(0);
-        let str_buffer =
-            str::from_utf8(&buffer).expect("Malformed request to check chain -- Unable to parse");
+        let str_buffer = str::from_utf8(&buffer).map_err(|_| GossipError::InvalidReplyError)?;
 
         let cleared = Node::sanitize(str_buffer.to_string());
-        let chain: Chain = serde_json::from_str(&cleared)
-            .expect("Malformed chain string -- Unable to create chain from request");
+        let chain: Chain =
+            serde_json::from_str(&cleared).map_err(|_| GossipError::InvalidReplyError)?;
 
         Ok(Some(Box::new(chain)))
     }
@@ -502,10 +517,15 @@ impl Node {
 /// Handles mining process if the node is a miner.
 async fn mine(miner: Arc<Mutex<Miner>>, mut chain: Chain) -> Chain {
     let mut inner_miner = miner.lock().await;
-    inner_miner.set_chain_meta(chain.get_len(), chain.difficulty, chain.get_blocks());
-    let mining_digest = inner_miner.mine(chain.get_last_block()).unwrap(); //TODO: Handle mining abort if the chain gets updated for this index
-    info!("Mined block: {}", mining_digest.get_block());
-    let _ = chain.add_block(mining_digest);
+    let mut mining_in_progress = false;
+    while mining_in_progress {
+        inner_miner.set_chain_meta(chain.get_len(), chain.difficulty, chain.get_blocks());
+        if let Ok(mining_digest) = inner_miner.mine(chain.get_last_block()) {
+            info!("Mined block: {}", mining_digest.get_block());
+            let _ = chain.add_block(mining_digest);
+            mining_in_progress = true;
+        }
+    }
     chain
 }
 

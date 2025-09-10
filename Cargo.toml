@@ -5,18 +5,3 @@ members = [
     "network",
     "app"
 ]
-
-
-[workspace.lints.clippy]
-unwrap_used = "deny"
-expect_used = "deny"
-panic = "deny"
-
-unimplemented = "deny"
-dbg_macro = "deny"
-wildcard_imports = "deny"
-cast_possible_truncation = "warn"
-cast_precision_loss = "warn"
-too_many_arguments = "warn"
-large_enum_variant = "warn"
-pedantic = "warn"

@@ -1,3 +1,5 @@
+use std::num::ParseIntError;
+
 use xxhash_rust::xxh3::xxh3_64;
 
 pub struct Object {
@@ -15,6 +17,6 @@ impl Object {
     }
 }
 
-pub fn from_string(string: &str) -> u64 {
-    u64::from_str_radix(string, 16).unwrap()
+pub fn from_string(string: &str) -> Result<u64, ParseIntError> {
+    u64::from_str_radix(string, 16)
 }

@@ -4,6 +4,7 @@ use crate::node::protocol;
 use chain::chain::Chain;
 use wallet::transaction::transaction::Transaction;
 
+use std::str::Utf8Error;
 use std::{
     io::{Error as IOError, Result as IOResult},
     str,
@@ -28,6 +29,8 @@ pub enum GossipError {
     IOError(IOError),
     #[error("Attempted to read and got would block.")]
     WouldBlock(ErrorKind),
+    #[error("InvalidReplyError")]
+    InvalidReplyError,
 }
 
 pub struct GossipReply {
@@ -46,13 +49,19 @@ pub struct GossipReply {
 ///
 /// # Returns
 /// * `IOResult<Neighbour>` - The tracker as a `Neighbour` instance.
-pub async fn greet(address: Arc<str>, id: Uuid, role: Role, tracker: &str) -> IOResult<Neighbour> {
+pub async fn greet(
+    address: Arc<str>,
+    id: Uuid,
+    role: Role,
+    tracker: &str,
+) -> Result<Neighbour, GossipError> {
     let socket = UdpSocket::bind(address.as_ref()).await?;
     let greeter = Neighbour {
         id,
         address: (*address.clone()).to_owned(),
         role,
     };
+    #[allow(clippy::unwrap_used)]
     let neighbour_str: String = serde_json::to_string(&greeter).unwrap();
     let mut buffer = vec![protocol::GREET];
     buffer.extend_from_slice(neighbour_str.as_bytes());
@@ -71,11 +80,11 @@ pub async fn greet(address: Arc<str>, id: Uuid, role: Role, tracker: &str) -> IO
         };
     }
 
-    let str_id = str::from_utf8(&buffer_recv).unwrap();
+    let str_id = str::from_utf8(&buffer_recv).map_err(|_| GossipError::InvalidReplyError)?;
     println!("New neighbour connected: {}", &str_id);
 
     Ok(Neighbour {
-        id: Uuid::parse_str(str_id).unwrap(),
+        id: Uuid::parse_str(str_id).map_err(|_| GossipError::InvalidReplyError)?,
         address: tracker.to_string(),
         role: Role::Tracker,
     })
@@ -120,7 +129,7 @@ pub async fn send_transaction(
 ///
 /// # Returns
 /// * `IOResult<Chain>` - The chain received from the neighbour.
-pub async fn poll_chain(address: Arc<str>, neighbour: &Neighbour) -> IOResult<Chain> {
+pub async fn poll_chain(address: Arc<str>, neighbour: &Neighbour) -> Result<Chain, GossipError> {
     let socket = UdpSocket::bind(address.as_ref()).await?;
     let buffer = [protocol::POLLCHAIN];
     socket.send_to(&buffer, &neighbour.address).await?;
@@ -128,8 +137,8 @@ pub async fn poll_chain(address: Arc<str>, neighbour: &Neighbour) -> IOResult<Ch
     let mut recv_buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
     socket.recv_from(&mut recv_buffer).await?;
 
-    let chain_str = str::from_utf8(&recv_buffer).unwrap();
-    Ok(serde_json::from_str(chain_str).unwrap())
+    let chain_str = str::from_utf8(&recv_buffer).map_err(|_| GossipError::InvalidReplyError)?;
+    Ok(serde_json::from_str(chain_str).map_err(|_| GossipError::InvalidReplyError)?)
 }
 
 /// Sends a copy of the blockchain to a specified neighbour.
@@ -138,9 +147,13 @@ pub async fn poll_chain(address: Arc<str>, neighbour: &Neighbour) -> IOResult<Ch
 /// * `address` - The address to bind the local UDP socket.
 /// * `neighbour` - The address of the neighbour to send the chain to.
 /// * `chain` - The blockchain to be sent.
-pub async fn send_chain(address: Arc<str>, neighbour: String, chain: Chain) -> IOResult<()> {
+pub async fn send_chain(
+    address: Arc<str>,
+    neighbour: String,
+    chain: Chain,
+) -> Result<(), GossipError> {
     let socket = UdpSocket::bind(address.as_ref()).await?;
-    let str_chain = serde_json::to_string(&chain).unwrap();
+    let str_chain = serde_json::to_string(&chain).map_err(|_| GossipError::InvalidReplyError)?;
     let mut buffer = vec![protocol::CHAIN];
     buffer.extend_from_slice(str_chain.as_bytes());
     socket.send_to(&buffer, &neighbour).await?;
@@ -159,7 +172,7 @@ pub async fn send_new_neighbours(
     neighbour_address: String,
     address: Arc<str>,
     new_neighbours: Vec<Neighbour>,
-) -> IOResult<()> {
+) -> Result<(), GossipError> {
     for new_neighbour in new_neighbours {
         if new_neighbour.id == neighbour_id {
             continue;
@@ -168,7 +181,8 @@ pub async fn send_new_neighbours(
         debug!("Sending neighbour {} to {}", new_neighbour.id, neighbour_id);
 
         let socket = UdpSocket::bind(address.as_ref()).await?;
-        let str_neighbour = serde_json::to_string(&new_neighbour).unwrap();
+        let str_neighbour =
+            serde_json::to_string(&new_neighbour).map_err(|_| GossipError::InvalidReplyError)?;
         let mut buffer = vec![protocol::NEIGHBOUR];
         buffer.extend_from_slice(str_neighbour.as_bytes());
 

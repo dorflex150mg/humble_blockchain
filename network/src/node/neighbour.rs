@@ -184,7 +184,12 @@ impl<'de> Deserialize<'de> for Neighbour {
                                 return Err(de::Error::duplicate_field("role"));
                             }
                             let raw = map.next_value()?;
-                            role = Some(Role::from_protocol(raw).unwrap());
+                            role = Some(Role::from_protocol(raw).map_err(|_| {
+                                de::Error::unknown_variant(
+                                    raw.to_string().as_str(),
+                                    &["0 (Tracker)", "1 (Node)", "2 (Miner)"],
+                                )
+                            })?);
                         }
                     }
                 }

@@ -10,6 +10,7 @@ const DEFAULT_END_KEY: &str = "FFFFFFFF";
 pub enum PeerSendError {
     InvalidNode,
     TransportError,
+    InvalidKey,
 }
 
 #[derive(Debug)]
@@ -51,7 +52,10 @@ impl Peer {
     pub fn send_object(&self, object: Object) -> Result<(), PeerSendError> {
         let hash = object.get_hash_as_integer();
         let mut index = 0;
-        while hash < object::from_string(self.peers[index].key_start.clone().as_ref()) {
+        while hash
+            < object::from_string(self.peers[index].key_start.clone().as_ref())
+                .map_err(|_| PeerSendError::InvalidKey)?
+        {
             index += 1;
         }
         let address = self.peers[index].node.get_address();
@@ -79,10 +83,9 @@ impl Peer {
 //    }
 //}
 
-#[derive(Default)]
 pub struct PeerBuilder {
     id: Option<Uuid>,
-    node: Option<Node>,
+    node: Node,
     peer_type: Option<Type>,
     address: Option<String>,
     key_start: Option<Arc<str>>,
@@ -90,8 +93,15 @@ pub struct PeerBuilder {
 }
 
 impl PeerBuilder {
-    pub fn new() -> Self {
-        PeerBuilder::default()
+    pub fn new(node: Node) -> Self {
+        PeerBuilder {
+            id: None,
+            node,
+            peer_type: None,
+            address: None,
+            key_start: None,
+            key_end: None,
+        }
     }
 
     pub fn with_id(mut self, id: Uuid) -> Self {
@@ -115,18 +125,13 @@ impl PeerBuilder {
         self
     }
 
-    pub fn with_node(mut self, node: Node) -> Self {
-        self.node = Some(node);
-        self
-    }
-
     pub fn build(self) -> Peer {
         let this_key_start: Arc<str> = DEFAULT_START_KEY.into();
         let this_key_end: Arc<str> = DEFAULT_END_KEY.into();
         Peer {
             id: self.id.unwrap_or(Uuid::new_v4()),
             peers: vec![],
-            node: self.node.unwrap(),
+            node: self.node,
             peer_type: self.peer_type.unwrap_or(Type::Tracker),
             key_start: self.key_start.unwrap_or(this_key_start),
             key_end: self.key_end.unwrap_or(this_key_end),
