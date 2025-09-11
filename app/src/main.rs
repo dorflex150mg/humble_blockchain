@@ -1,12 +1,12 @@
-//! # HumbleBlockchain
+//! # `HumbleBlockchain`
 //!                                                                                    //
 //! Entry point for the crypto project. Initializes tracing and starts the application.//
-//! Uses the following crates:                                                         // Turn on stricter lint groups
-//! - `chain` for blockchain logic                                                     #![warn(clippy::pedantic)]   // enable pedantic checks
-//! - `miner` for mining operations                                                    #![warn(clippy::nursery)]    // enable experimental, but useful checks
-//! - `wallet` for wallet management                                                   #![warn(missing_docs)]
+//! Uses the following crates:                                                        
+//! - `chain` for blockchain logic                                                     
+//! - `miner` for mining operations                                                    
+//! - `wallet` for wallet management                                                   
 //! - `transaction` for transactions
-//! - `network` for DHT, node, and object management                                   // Explicitly forbid dangerous practices
+//! - `network` for DHT, node, and object management                                  
 
 #![warn(missing_docs)]
 #![deny(clippy::unwrap_used)]

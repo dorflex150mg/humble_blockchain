@@ -17,9 +17,10 @@ const INTERVAL: u64 = 60;
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Chain {
     id: Uuid,
-    blocks: Vec<Block>,    // List of blocks in the chain
-    len: usize,            // Current length of the chain
-    pub difficulty: usize, // Current mining difficulty (number of leading zeros required)
+    blocks: Vec<Block>,
+    len: usize,
+    /// Current mining difficulty (number of leading zeros required)
+    pub difficulty: usize,
 }
 
 impl PartialEq for Chain {

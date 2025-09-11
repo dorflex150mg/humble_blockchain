@@ -2,7 +2,8 @@ use crate::transaction::block_entry_common::{BlockMemberId, EntryDecodeError, Si
 use base64::{engine::general_purpose, Engine as _};
 use uuid::Uuid;
 
-const N_RECORD_FIELDS: usize = 6;
+/// Number of fields in a Record.
+pub const N_RECORD_FIELDS: usize = 6;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Record {

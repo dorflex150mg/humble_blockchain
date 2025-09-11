@@ -8,15 +8,23 @@ use std::fmt;
 
 use thiserror::Error;
 
+/// A zeroed-out wallet public key.
+/// This constant is used to represent a zero wallet, often used in transactions involving mining rewards.
 pub const ZERO_WALLET_PK: [u8; 64] = [0u8; 64];
 
+/// Metadata about the blockchain.
 #[derive(Clone)]
 pub struct ChainMeta {
+    /// The length of the blockchain.
     pub len: usize,
+    /// The current difficulty for mining new blocks.
     pub difficulty: usize,
+    /// The list of blocks in the blockchain.
     pub blocks: Vec<Block>,
 }
 
+/// A digest of mining information.
+/// Contains a block and the nonce used to mine it.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MiningDigest {
     block: Block,
@@ -24,25 +32,45 @@ pub struct MiningDigest {
 }
 
 impl MiningDigest {
+    /// Creates a new `MiningDigest`.
+    ///
+    /// # Arguments
+    /// * `block` - The block that was mined.
+    /// * `nonce` - The nonce used to mine the block.
+    ///
+    /// # Returns
+    /// * `Self` - The newly created `MiningDigest`.
     pub fn new(block: Block, nonce: u64) -> Self {
         MiningDigest { block, nonce }
     }
 
+    /// Retrieves the block from the mining digest.
+    ///
+    /// # Returns
+    /// * `Block` - The block that was mined.
     pub fn get_block(&self) -> Block {
         self.block.clone()
     }
 
+    /// Retrieves the nonce from the mining digest.
+    ///
+    /// # Returns
+    /// * `u64` - The nonce used to mine the block.
     pub fn get_nonce(&self) -> u64 {
         self.nonce
     }
 }
 
+/// Errors that can occur during the mining process.
 #[derive(Error, Debug, derive_more::From, derive_more::Display)]
 pub enum MiningError {
+    /// Indicates an error related to an invalid transaction.
     InvalidTransactionErr(InvalidTransactionErr),
+    /// Indicates an error related to uninitialized chain metadata.
     UninitializedChainMetaErr(UninitializedChainMetaErr),
 }
 
+/// Error indicating that the chain metadata has not been initialized.
 #[derive(Error, Debug)]
 pub struct UninitializedChainMetaErr;
 
@@ -52,6 +80,8 @@ impl fmt::Display for UninitializedChainMetaErr {
     }
 }
 
+/// A miner in the blockchain network.
+/// Responsible for mining new blocks and managing transactions.
 pub struct Miner {
     id: u64,
     name: String,
@@ -61,6 +91,15 @@ pub struct Miner {
 }
 
 impl Miner {
+    /// Creates a new `Miner`.
+    ///
+    /// # Arguments
+    /// * `id` - The unique identifier for the miner.
+    /// * `name` - The name of the miner.
+    /// * `chain_meta` - The metadata about the blockchain.
+    ///
+    /// # Returns
+    /// * `Self` - The newly created miner.
     pub fn new(id: u64, name: String, chain_meta: ChainMeta) -> Self {
         Miner {
             id,
@@ -71,17 +110,28 @@ impl Miner {
         }
     }
 
+    /// Retrieves the name of the miner.
+    ///
+    /// # Returns
+    /// * `String` - The name of the miner.
     #[allow(dead_code)]
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
 
+    /// Mines a new block.
+    ///
+    /// # Arguments
+    /// * `block` - The block to be mined.
+    ///
+    /// # Returns
+    /// * `Result<MiningDigest, MiningError>` - The result of the mining operation.
     pub fn mine(&mut self, mut block: Block) -> Result<MiningDigest, MiningError> {
         self.transactions = self.check_transactions()?;
         loop {
             let mut rng = rand::thread_rng();
             block.nonce = rng.gen_range(0..=u64::MAX);
-            let str_digest = block.calculate_hash();
+            let str_digest: Hash = block.calculate_hash();
             if str_digest.starts_with(&"0".repeat(self.chain_meta.difficulty)) {
                 let prize_transaction = Transaction::new(
                     ZERO_WALLET_PK.to_vec(),
@@ -94,12 +144,16 @@ impl Miner {
                     self.create_new_block(str_digest, block.hash.clone()),
                     block.nonce,
                 ));
-            } else {
-                continue;
             }
         }
     }
 
+    /// Sets the chain metadata for the miner.
+    ///
+    /// # Arguments
+    /// * `len` - The length of the blockchain.
+    /// * `difficulty` - The current difficulty for mining new blocks.
+    /// * `blocks` - The list of blocks in the blockchain.
     pub fn set_chain_meta(&mut self, len: usize, difficulty: usize, blocks: Vec<Block>) {
         self.chain_meta = ChainMeta {
             len,
@@ -108,15 +162,27 @@ impl Miner {
         }
     }
 
+    /// Sets the transactions for the miner.
+    ///
+    /// # Arguments
+    /// * `new_transactions` - The new list of transactions.
     #[allow(dead_code)]
     pub fn set_transactions(&mut self, new_transactions: Vec<Transaction>) {
         self.transactions = new_transactions;
     }
 
+    /// Adds a new transaction to the miner's list of transactions.
+    ///
+    /// # Arguments
+    /// * `transaction` - The transaction to be added.
     pub fn push_transaction(&mut self, transaction: Transaction) {
         self.transactions.push(transaction);
     }
 
+    /// Checks the validity of the miner's transactions.
+    ///
+    /// # Returns
+    /// * `Result<Vec<Transaction>, MiningError>` - The result of the transaction validation.
     pub fn check_transactions(&self) -> Result<Vec<Transaction>, MiningError> {
         let filtered: Vec<Transaction> = self
             .transactions
@@ -128,23 +194,32 @@ impl Miner {
         Ok(filtered)
     }
 
+    /// Creates a new block and adds it to the blockchain.
+    ///
+    /// # Arguments
+    /// * `hash` - The hash of the new block.
+    /// * `previous_hash` - The hash of the previous block.
+    ///
+    /// # Returns
+    /// * `Block` - The newly created block.
     pub fn create_new_block(&mut self, hash: Hash, previous_hash: Hash) -> Block {
-        let index = self.chain_meta.len + 1;
-        let cap = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
+        let index: usize = self.chain_meta.len + 1;
+        let cap: usize = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
         let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
         let encoded_transactions: Vec<String> = capped_transactions
             .iter()
             .map(|transaction| transaction.clone().into())
             .collect();
-        let data = encoded_transactions.join("");
+        let data: String = encoded_transactions.join("");
         self.wallet.add_coin(hash.clone().into());
+
         Block::new(index, previous_hash, data, Some(hash))
     }
 }
 
 impl fmt::Display for Miner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let joint_coins = self
+        let joint_coins: String = self
             .wallet
             .coins
             .iter()
