@@ -188,7 +188,7 @@ impl Miner {
             .transactions
             .iter()
             .filter_map(|transaction| {
-                block::check_transaction(transaction.clone(), &self.chain_meta.blocks).ok()
+                block::check_transaction_tokens(transaction.clone(), &self.chain_meta.blocks).ok()
             })
             .collect();
         Ok(filtered)

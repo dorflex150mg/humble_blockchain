@@ -12,8 +12,8 @@ pub const N_TRANSACTION_FIELDS: usize = 7;
 pub struct Transaction {
     pub block_entry_type_id: BlockMemberId,
     pub transaction_id: Uuid,
-    pub sender_wallet: Vec<u8>,
-    pub receiver_wallet: Vec<u8>,
+    pub sender_pk: Vec<u8>,
+    pub receiver_pk: Vec<u8>,
     pub timestamp: u64,
     pub coins: Vec<String>,
     pub signature: Option<Vec<u8>>,
@@ -28,12 +28,16 @@ impl Transaction {
         Transaction {
             block_entry_type_id: BlockMemberId::Transaction,
             transaction_id: Uuid::new_v4(),
-            sender_wallet: sender,
-            receiver_wallet: receiver,
+            sender_pk: sender,
+            receiver_pk: receiver,
             timestamp: now,
             coins,
             signature: None,
         }
+    }
+
+    pub fn get_sender_pk(&self) -> Vec<u8> {
+        self.sender_pk.clone()
     }
 }
 
@@ -60,8 +64,8 @@ impl TryFrom<String> for Transaction {
             block_entry_type_id: ident,
             transaction_id: Uuid::parse_str(fields[1])
                 .map_err(|_| EntryDecodeError::InvalidIdError)?,
-            sender_wallet: general_purpose::STANDARD.decode(fields[2])?,
-            receiver_wallet: general_purpose::STANDARD.decode(fields[3])?,
+            sender_pk: general_purpose::STANDARD.decode(fields[2])?,
+            receiver_pk: general_purpose::STANDARD.decode(fields[3])?,
             coins: vec![fields[4].to_string().clone()],
             timestamp: fields[5].parse::<u64>()?,
             signature,
@@ -84,8 +88,8 @@ impl Into<String> for Transaction {
             "{};{};{};{};{};{};{};",
             block_entry_type_id,
             self.transaction_id.as_hyphenated(),
-            general_purpose::STANDARD.encode(&self.sender_wallet),
-            general_purpose::STANDARD.encode(&self.receiver_wallet),
+            general_purpose::STANDARD.encode(&self.sender_pk),
+            general_purpose::STANDARD.encode(&self.receiver_pk),
             joined_coins,
             self.timestamp,
             signature,
@@ -99,8 +103,8 @@ impl fmt::Display for Transaction {
             f,
             "timestamp: {}, sender: {:?}, receiver: {:?}, coins: {}",
             self.timestamp,
-            self.sender_wallet,
-            self.receiver_wallet,
+            self.sender_pk,
+            self.receiver_pk,
             self.coins.join(" ")
         )
     }
@@ -110,8 +114,8 @@ impl Sign for Transaction {
     fn get_payload(&self) -> Vec<u8> {
         [
             self.transaction_id.as_bytes().as_slice(),
-            self.sender_wallet.as_ref(),
-            self.receiver_wallet.as_ref(),
+            self.sender_pk.as_ref(),
+            self.receiver_pk.as_ref(),
             self.coins.join(";").as_bytes(),
         ]
         .concat()
@@ -119,5 +123,9 @@ impl Sign for Transaction {
 
     fn set_signature(&mut self, signature: Vec<u8>) {
         self.signature = Some(signature);
+    }
+
+    fn get_signature(&self) -> Option<Vec<u8>> {
+        self.signature.clone()
     }
 }

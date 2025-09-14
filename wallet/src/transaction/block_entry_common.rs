@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::num::ParseIntError;
 use thiserror::Error;
 
@@ -49,7 +49,8 @@ pub enum EntryDecodeError {
     WrongFieldCountError,
 }
 
-pub trait Sign: Debug {
+pub trait Sign: Debug + Display {
     fn get_payload(&self) -> Vec<u8>;
-    fn set_signature(&mut self, signaure: Vec<u8>);
+    fn set_signature(&mut self, signature: Vec<u8>);
+    fn get_signature(&self) -> Option<Vec<u8>>;
 }

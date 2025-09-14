@@ -131,69 +131,6 @@ pub struct Block {
     pub nonce: u64,
 }
 
-/// Errors that can occur when validating a transaction.
-#[derive(Error, Debug)]
-pub enum InvalidTransactionErr {
-    /// Indicates that the transaction is invalid because the sender does not own the coin.
-    /// This error is returned when the last owner of the coin is not the transaction's spender.
-    IncompleteChain,
-    /// Indicates that the transaction is invalid because the coin being spent is not valid.
-    /// This error is returned when the coin is not found in any of the blocks in the blockchain.
-    UnknownCoin,
-}
-
-impl fmt::Display for InvalidTransactionErr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::IncompleteChain => write!(
-                f,
-                "The last owner of this coin is not this transaction's spender."
-            ),
-            Self::UnknownCoin => write!(f, "The coin spent in this transaction is not valid."),
-        }
-    }
-}
-
-/// Validates a transaction by checking that the sender owns the coins they are trying to spend.
-///
-/// # Arguments
-/// * `block_member` - The transaction to validate.
-/// * `blocks` - A slice of blocks that constitute the current blockchain.
-///
-/// # Returns
-/// * `Result<Transaction, InvalidTransactionErr>` - Returns the validated transaction if successful, or an error if validation fails.
-pub fn check_transaction(
-    block_member: Transaction,
-    blocks: &[Block],
-) -> Result<Transaction, InvalidTransactionErr> {
-    let coins: &Vec<String> = &block_member.coins;
-    for coin in coins {
-        //verify each coin is valid:
-        let mut coin_found: bool = false;
-        for block in blocks.iter().rev() {
-            //check each block
-            for t in get_block_entries!(block, Transaction) {
-                //check each transaction in the block
-                if t.coins[0] == *coin {
-                    coin_found = true; //if the coin gets found, check if the spender is
-                                       //the last owner of the coin
-                    if t.receiver_wallet != block_member.sender_wallet {
-                        // fail if sender doesnt own the
-                        // coin
-                        return Err(InvalidTransactionErr::IncompleteChain);
-                    }
-                    break;
-                }
-            }
-        }
-        if !coin_found {
-            // if the coin is not in any blocks, fail
-            return Err(InvalidTransactionErr::UnknownCoin);
-        }
-    }
-    Ok(block_member)
-}
-
 impl Block {
     #[allow(clippy::unwrap_used)]
     /// Creates a new `Block`.

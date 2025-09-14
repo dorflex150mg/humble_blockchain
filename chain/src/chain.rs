@@ -141,7 +141,7 @@ impl Chain {
     ///
     /// # Returns
     /// A `Result` which is `Ok` if the block is valid or contains a `BlockCheckError` if invalid.
-    fn check_block_data(
+    pub fn check_block_data(
         &self,
         data: String,
         previous_hash: &String,
