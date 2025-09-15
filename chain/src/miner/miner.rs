@@ -1,4 +1,6 @@
-use crate::block::block::{self, Block, Hash, InvalidTransactionErr};
+use crate::block::block::{self, Block, Hash};
+
+use wallet::block_chain::BlockChainBlock;
 use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
@@ -64,8 +66,6 @@ impl MiningDigest {
 /// Errors that can occur during the mining process.
 #[derive(Error, Debug, derive_more::From, derive_more::Display)]
 pub enum MiningError {
-    /// Indicates an error related to an invalid transaction.
-    InvalidTransactionErr(InvalidTransactionErr),
     /// Indicates an error related to uninitialized chain metadata.
     UninitializedChainMetaErr(UninitializedChainMetaErr),
 }
@@ -188,7 +188,15 @@ impl Miner {
             .transactions
             .iter()
             .filter_map(|transaction| {
-                block::check_transaction_tokens(transaction.clone(), &self.chain_meta.blocks).ok()
+                let boxed_blocks: Vec<Box<dyn BlockChainBlock>> = self
+                    .chain_meta
+                    .blocks
+                    .iter()
+                    .map(|b| Box::new(b.clone()) as Box<dyn BlockChainBlock>)
+                    .collect();
+                Wallet::check_transaction_tokens(&transaction, boxed_blocks.as_slice())
+                    .and(Ok(transaction.clone()))
+                    .ok()
             })
             .collect();
         Ok(filtered)

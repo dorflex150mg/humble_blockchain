@@ -11,6 +11,7 @@
 #![warn(clippy::large_enum_variant)]
 #![warn(clippy::pedantic)]
 
+pub mod block_chain;
 pub mod wallet;
 pub mod transaction {
     pub mod block_entry_common;

@@ -1,8 +1,10 @@
 use crate::block::block_entry::{
     RECORD_BLOCK_MEMBER_IDENTIFIER, TRANSACTION_BLOCK_MEMBER_IDENTIFIER,
 };
+use wallet::block_chain::BlockChainBlock;
 use wallet::token::Token;
 use wallet::token::TOKEN_SIZE;
+use wallet::transaction::record::Record;
 use wallet::transaction::record::N_RECORD_FIELDS;
 use wallet::transaction::transaction::Transaction;
 use wallet::transaction::transaction::N_TRANSACTION_FIELDS;
@@ -228,5 +230,27 @@ impl fmt::Display for Block {
             "Block(index: {}, previous hash: {}, hash: {}, timestamp: {})",
             self.index, self.previous_hash, self.hash, self.timestamp
         )
+    }
+}
+
+impl BlockChainBlock for Block {
+    fn get_data(&self) -> &str {
+        &self.data
+    }
+
+    fn get_hash(&self) -> &str {
+        &self.hash
+    }
+
+    fn get_records(&self) -> Vec<wallet::transaction::record::Record> {
+        get_block_entries!(self, Record)
+    }
+
+    fn get_transactions(&self) -> Vec<Transaction> {
+        get_block_entries!(self, Transaction)
+    }
+
+    fn get_previous_hash(&self) -> &str {
+        &self.previous_hash
     }
 }
