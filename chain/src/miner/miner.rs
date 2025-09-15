@@ -1,4 +1,5 @@
 use crate::block::block::{self, Block, Hash};
+use crate::chain::Chain;
 
 use wallet::block_chain::BlockChainBlock;
 use wallet::transaction::transaction::Transaction;
@@ -87,7 +88,7 @@ pub struct Miner {
     name: String,
     pub wallet: Wallet,
     pub transactions: Vec<Transaction>,
-    pub chain_meta: ChainMeta,
+    pub chain: Chain,
 }
 
 impl Miner {
@@ -100,13 +101,13 @@ impl Miner {
     ///
     /// # Returns
     /// * `Self` - The newly created miner.
-    pub fn new(id: u64, name: String, chain_meta: ChainMeta) -> Self {
+    pub fn new(id: u64, name: String, chain: Chain) -> Self {
         Miner {
             id,
             name,
             wallet: Wallet::new(),
             transactions: vec![],
-            chain_meta,
+            chain,
         }
     }
 
@@ -132,7 +133,7 @@ impl Miner {
             let mut rng = rand::thread_rng();
             block.nonce = rng.gen_range(0..=u64::MAX);
             let str_digest: Hash = block.calculate_hash();
-            if str_digest.starts_with(&"0".repeat(self.chain_meta.difficulty)) {
+            if str_digest.starts_with(&"0".repeat(self.chain.difficulty)) {
                 let prize_transaction = Transaction::new(
                     ZERO_WALLET_PK.to_vec(),
                     self.wallet.get_pub_key(),
@@ -154,12 +155,8 @@ impl Miner {
     /// * `len` - The length of the blockchain.
     /// * `difficulty` - The current difficulty for mining new blocks.
     /// * `blocks` - The list of blocks in the blockchain.
-    pub fn set_chain_meta(&mut self, len: usize, difficulty: usize, blocks: Vec<Block>) {
-        self.chain_meta = ChainMeta {
-            len,
-            difficulty,
-            blocks,
-        }
+    pub fn set_chain_meta(&mut self, chain: Chain) {
+        self.chain = chain;
     }
 
     /// Sets the transactions for the miner.
@@ -189,8 +186,8 @@ impl Miner {
             .iter()
             .filter_map(|transaction| {
                 let boxed_blocks: Vec<Box<dyn BlockChainBlock>> = self
-                    .chain_meta
-                    .blocks
+                    .chain
+                    .get_blocks()
                     .iter()
                     .map(|b| Box::new(b.clone()) as Box<dyn BlockChainBlock>)
                     .collect();
@@ -211,7 +208,7 @@ impl Miner {
     /// # Returns
     /// * `Block` - The newly created block.
     pub fn create_new_block(&mut self, hash: Hash, previous_hash: Hash) -> Block {
-        let index: usize = self.chain_meta.len + 1;
+        let index: usize = self.chain.get_len() + 1;
         let cap: usize = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
         let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
         let encoded_transactions: Vec<String> = capped_transactions

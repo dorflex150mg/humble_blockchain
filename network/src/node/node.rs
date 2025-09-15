@@ -13,7 +13,7 @@ use std::{
     collections::HashMap,
     io::{Error as IOError, Result as IOResult},
     str,
-    sync::Arc,
+    sync::{self, Arc},
 };
 use thiserror::Error;
 use tokio::sync::{
@@ -47,9 +47,7 @@ pub enum WrongRoleError {
     #[error("That operation requires a Node with Role Tracker.")]
     NotTracker,
 }
-#[derive(
-    Error, Debug, derive_more::From, derive_more::Display, Error, Debug, derive_more::From,
-)]
+#[derive(Error, Debug, derive_more::From)]
 pub enum ListenError {
     #[error(transparent)]
     WrongRoleError(WrongRoleError),
@@ -83,8 +81,8 @@ pub struct Node {
     new_neighbours: Vec<Neighbour>,
     initialized: bool,
     trackers: Option<Vec<String>>,
-    receiver: Arc<Mutex<Receiver>>,
-    miner: Option<Arc<Mutex<Miner>>>,
+    transaction_receiver: Arc<Mutex<Receiver>>,
+    miner: Option<Arc<Mutex<Arc<sync::Mutex<Miner>>>>>, // Inner arc for blocking threads.
     log_sender: Option<mpsc::Sender<String>>,
 }
 // ------------------------------- // Node Implementation // -------------------------------
@@ -109,7 +107,7 @@ impl Node {
             new_neighbours: vec![],
             initialized: false,
             trackers,
-            receiver: Arc::new(Mutex::new(receiver)),
+            transaction_receiver: Arc::new(Mutex::new(receiver)),
             miner,
             log_sender,
         }
@@ -139,6 +137,7 @@ impl Node {
         let mut theme = Theme::default();
         let (mining_sender, mut mining_receiver) = mpsc::channel(1024);
         let mining_sender: &'static Sender<Chain> = Box::leak(Box::new(mining_sender));
+        let (sender, mut receiver) = broadcast::channel(16);
         loop {
             //Task 1: Spread update to neighbours.
             println!("{} spreading updates.", self.id);
@@ -147,8 +146,7 @@ impl Node {
             let address_gossip = self.address.clone();
             let random_neighbours = self.get_random_neighbours();
             let new_neighbours = self.new_neighbours.clone();
-            let (sender, receiver) = broadcast::channel(16);
-            let gossip_receiver = sender.subscribe();
+            let gossip_receiver = (&sender).subscribe();
             tokio::spawn(gossip(
                 address_gossip,
                 chain_gossip,
@@ -159,7 +157,7 @@ impl Node {
             ));
             //Task 2: Add local transactions to local miner or send them to remote miners.
             println!("{} listening to transactions (miner).", self.id);
-            let receiver_clone = self.receiver.clone();
+            let receiver_clone = self.transaction_receiver.clone();
             let neighbours = self.neighbours.clone();
             let address = self.address.clone();
             let miner_transaction_handle = self.miner.clone();
@@ -173,24 +171,25 @@ impl Node {
             ));
             //Task 3: If this is miner, try to mine a block.
             if self.role == Role::Miner {
-                let chain = self.chain.clone();
-                let chain_meta = ChainMeta {
-                    len: chain.len(),
-                    difficulty: chain.difficulty,
-                    blocks: chain.get_blocks(),
-                };
-                self.transaction_buffer = Some(vec![]);
-                self.miner = Some(Arc::new(Mutex::new(Miner::new(
-                    1,
-                    "miner".to_string(),
-                    chain_meta,
-                )))); //TODO: generate id and name
+                if self.miner.is_none() {
+                    let chain = self.chain.clone();
+                    self.transaction_buffer = Some(vec![]);
+                    self.miner = Some(Arc::new(Mutex::new(Arc::new(sync::Mutex::new(
+                        Miner::new(1, "miner".to_string(), chain),
+                    ))))); //TODO: generate id and name
+                }
                 let miner_worker_handle = self.miner.clone();
-                tokio::spawn(try_mine(self.id, miner_worker_handle, chain, mining_sender));
+                println!("trying to mine...");
+                tokio::spawn(try_mine(
+                    self.id,
+                    miner_worker_handle,
+                    self.chain.clone(),
+                    mining_sender,
+                ));
             }
             //Task 3: Listen to possible updates the peers might have shared.
             let _ = self
-                .listen_to_peers(sender, &mut mining_receiver, receiver)
+                .listen_to_peers(&sender, &mut mining_receiver, &mut receiver)
                 .await;
         }
     }
@@ -213,7 +212,6 @@ impl Node {
                     }
                     Err(_) => {
                         println!("Node {} failed to greet tracker", self.id);
-                        continue;
                     }
                 }
             }
@@ -260,13 +258,14 @@ impl Node {
     /// Listens for incoming messages and processes them based on the protocol.
     pub async fn listen_to_peers(
         &mut self,
-        sender: broadcast::Sender<Chain>,
+        sender: &broadcast::Sender<Chain>,
         mining_receiver: &mut mpsc::Receiver<Chain>,
-        mut receiver: broadcast::Receiver<Chain>,
+        mut receiver: &mut broadcast::Receiver<Chain>,
     ) -> Result<(), GossipError> {
         loop {
             self.check_mined_chain_and_broadcast(&sender, mining_receiver);
             self.check_peer_mined_chains(&mut receiver);
+            println!("{} updating chain len.", self.id);
             self.update_log(self.chain.len().to_string()).await;
             let gossip_reply = match gossip::listen_to_gossip(self.address.clone()).await {
                 Ok(res) => match res {
@@ -436,16 +435,17 @@ impl Node {
         }
     }
 }
+
 /// Handles mining process if the node is a miner.
-async fn mine(miner: Arc<Mutex<Miner>>, mut chain: Chain) -> Chain {
-    let mut inner_miner = miner.lock().await;
-    let mut mining_in_progress = false;
+#[allow(clippy::unwrap_used)]
+fn mine(mut miner: Arc<sync::Mutex<Miner>>, mut chain: Chain) -> Chain {
+    let mut mining_in_progress = true;
     while mining_in_progress {
-        inner_miner.set_chain_meta(chain.get_len(), chain.difficulty, chain.get_blocks());
-        if let Ok(mining_digest) = inner_miner.mine(chain.get_last_block()) {
+        miner.lock().unwrap().set_chain_meta(chain.clone());
+        if let Ok(mining_digest) = miner.lock().unwrap().mine(chain.get_last_block()) {
             info!("Mined block: {}", mining_digest.get_block());
             let _ = chain.add_block(mining_digest);
-            mining_in_progress = true;
+            mining_in_progress = false;
         }
     }
     chain
@@ -477,7 +477,7 @@ async fn listen_to_transactions(
     receiver: Arc<Mutex<Receiver>>,
     neighbours: HashMap<Uuid, Neighbour>,
     address: Arc<str>,
-    miner: Option<Arc<Mutex<Miner>>>,
+    miner: Option<Arc<Mutex<Arc<sync::Mutex<Miner>>>>>,
     log_sender: Option<Sender<String>>,
 ) {
     match receive_transaction(receiver).await {
@@ -545,30 +545,48 @@ async fn receive_transaction(
         Err(e) => Err(TransactionRecvError::TransactionFromBase64Error(e)), // Consider handling this more gracefully
     }
 }
+
+#[allow(clippy::unwrap_used)]
 async fn try_mine(
     node_id: Uuid,
-    miner_opt: Option<Arc<Mutex<Miner>>>,
+    miner_opt: Option<Arc<Mutex<Arc<sync::Mutex<Miner>>>>>,
     chain: Chain,
     mining_sender: &'static mpsc::Sender<Chain>,
 ) {
     if let Some(miner) = miner_opt {
         let current_chain = chain;
-        let loop_miner = miner.clone();
-        tokio::spawn(async move {
-            let new_chain = mine(loop_miner, current_chain.clone()).await;
+
+        let mut loop_miner = {
+            let guard = miner.lock().await;
+            guard.clone()
+        };
+        println!("about to mine...");
+        let new_chain = tokio::task::spawn_blocking(move || {
+            println!("actually mining...");
+            let new_chain = mine(loop_miner, current_chain.clone());
             info!(
                 "node {} has succefully mined a block and now it is: {}",
                 node_id, new_chain
             );
-            match mining_sender.send(new_chain).await {
-                Ok(_) => (),
-                Err(e) => println!("Failed to send new chain due to {}", e),
-            }
-        });
+            new_chain
+        })
+        .await
+        .unwrap();
+        match mining_sender.send(new_chain).await {
+            Ok(_) => (),
+            Err(e) => println!("Failed to send new chain due to {}", e),
+        }
+    } else {
+        println!("No miner...");
     }
 }
 
-async fn push_transaction(miner: &mut Arc<Mutex<Miner>>, transaction: Transaction) {
-    let mut inner = miner.lock().await;
+#[allow(clippy::unwrap_used)]
+async fn push_transaction(
+    miner: &mut Arc<Mutex<Arc<sync::Mutex<Miner>>>>,
+    transaction: Transaction,
+) {
+    let guard = miner.lock().await;
+    let mut inner = guard.lock().unwrap();
     inner.push_transaction(transaction);
 }

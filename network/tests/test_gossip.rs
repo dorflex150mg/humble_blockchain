@@ -35,10 +35,10 @@ fn make_up_transaction() -> Transaction {
 async fn send_transaction_loop(mut tx: mpsc::Sender<String>, iterations: Option<u32>) {
     async fn _send_transaction_single(tx: mpsc::Sender<String>) -> mpsc::Sender<String> {
         let t1 = make_up_transaction();
-        println!("[transaction loop]: Sending transaction...");
+        //println!("[transaction loop]: Sending transaction...");
         // Send the transaction over the channel
         if let Err(e) = tx.send(t1.into()).await {
-            println!("Error sending transaction: {}", e);
+            //println!("Error sending transaction: {}", e);
         }
         // Sleep for 500 milliseconds between sends
         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -62,7 +62,7 @@ async fn send_transaction_loop(mut tx: mpsc::Sender<String>, iterations: Option<
 /// It then starts sending mock transactions to test the gossip protocol between the nodes.
 #[tokio::test]
 pub async fn test_gossip() {
-    println!("Starting gossip test");
+    //println!("Starting gossip test");
 
     // Create the first node (Tracker)
     let (_, rx1) = mpsc::channel::<String>(1024); // Create a communication channel for transactions
@@ -108,7 +108,7 @@ pub async fn test_gossip() {
 
         log = log_receiver.recv() => {
             let res = log.unwrap();
-            println!("res: {}", res);
+            //println!("res: {}", res);
             assert_eq!(res, "NeighbourAdded");
         }
     };
@@ -132,6 +132,7 @@ pub async fn test_gossip() {
         let mut logs = vec![];
         while recv < 3 {
             let log = log_receiver.recv().await.unwrap();
+            println!("Miner has written to log: {}", &log);
             if let Ok(mined_blocks) = log.parse::<usize>() {
                 recv = mined_blocks;
             }

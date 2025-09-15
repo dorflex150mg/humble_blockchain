@@ -20,14 +20,8 @@ pub fn test_core() {
     let mut my_chain = Chain::new();
     my_chain.print_last_block();
 
-    let chain_meta = ChainMeta {
-        len: my_chain.get_len(),
-        difficulty: my_chain.difficulty,
-        blocks: my_chain.get_blocks(),
-    };
-
     // Create the first miner
-    let mut miner1 = Miner::new(1, String::from("Miner 1"), chain_meta);
+    let mut miner1 = Miner::new(1, String::from("Miner 1"), my_chain.clone());
     info!("Miner created -> {}", miner1);
 
     // Create a wallet for future transactions
@@ -35,11 +29,6 @@ pub fn test_core() {
 
     // Setup mining metadata for miner1 and mine the first block
     let last_block = my_chain.get_last_block();
-    miner1.set_chain_meta(
-        my_chain.get_len(),
-        my_chain.difficulty,
-        my_chain.get_blocks(),
-    );
 
     let res_mining_digest = miner1.mine(last_block);
     assert!(res_mining_digest.is_ok());
@@ -62,11 +51,7 @@ pub fn test_core() {
     let signed_t1 = miner1.wallet.sign(t1);
 
     // Update miner1 with the latest chain metadata and mine a block with the transaction
-    miner1.set_chain_meta(
-        my_chain.get_len(),
-        my_chain.difficulty,
-        my_chain.get_blocks(),
-    );
+    miner1.set_chain_meta(my_chain.clone());
 
     miner1.push_transaction(signed_t1);
 
@@ -86,19 +71,13 @@ pub fn test_core() {
     assert!(my_chain.add_block(new_mining_digest).is_ok());
 
     // Shared blockchain instance for multiple miners
-    let difficulty = my_chain.difficulty;
-    let len = my_chain.get_len();
-    let blocks = my_chain.get_blocks();
+    let my_chain_clone = my_chain.clone();
     let chain_arc = Arc::new(Mutex::new(my_chain));
     let other_chain_arc = Arc::clone(&chain_arc);
 
-    let chain_meta = ChainMeta {
-        len,
-        difficulty,
-        blocks,
-    };
     // Create the second miner
-    let mut miner2 = Miner::new(2, String::from("Miner 2"), chain_meta);
+
+    let mut miner2 = Miner::new(2, String::from("Miner 2"), my_chain_clone);
 
     // Spawn a new thread for miner2 to mine blocks concurrently
     let iterations = 2;
@@ -108,11 +87,9 @@ pub fn test_core() {
             info!("Miner 2 iteration: {}", i);
             let mut chain = chain_clone.lock().unwrap();
             let last_block = chain.get_last_block();
-            let chain_len = chain.get_len();
-            let difficulty = chain.difficulty;
 
             // Update miner2 with the latest chain metadata and mine a block
-            miner2.set_chain_meta(chain_len, difficulty, chain.get_blocks());
+            miner2.set_chain_meta(chain.clone());
 
             let res_mining_digest = miner2.mine(last_block);
             assert!(res_mining_digest.is_ok());
@@ -133,11 +110,9 @@ pub fn test_core() {
         info!("Miner 1 iteration: {}", i);
         let chain = Arc::clone(&other_chain_arc);
         let last_block = chain.lock().unwrap().get_last_block();
-        let chain_len = chain.lock().unwrap().get_len();
-        let difficulty = chain.lock().unwrap().difficulty;
 
         // Update miner1 with the latest chain metadata and mine a block
-        miner1.set_chain_meta(chain_len, difficulty, chain.lock().unwrap().get_blocks());
+        miner1.set_chain_meta(chain.lock().unwrap().clone());
 
         let res_mining_digest = miner1.mine(last_block);
         assert!(res_mining_digest.is_ok());
