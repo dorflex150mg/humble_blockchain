@@ -193,38 +193,56 @@ impl Node {
     // Network Operations
     // -------------------------------
 
-    /// Main node loop that listens and processes various activities in the network.
+       /// Main node loop that listens and processes various activities in the network.
     pub async fn node_loop(&mut self) -> Result<(), GossipError> {
-        let (sender, _) = broadcast::channel::<Chain>(16);
-        let (mut mining_sender, mut mining_receiver) = mpsc::channel::<Chain>(16);
-
-        let mut receiver = sender.subscribe();
-
+        debug!("{} starting node loop.", self.id);
+        let mut theme = Theme::default();
+        let (mining_sender, mut mining_receiver) = mpsc::channel(1024);
+        let mining_sender: &'static Sender<Chain> = Box::leak(Box::new(mining_sender));
         loop {
-            self.listen_to_peers(sender.clone(), &mut mining_receiver, receiver.resubscribe())
-                .await?;
+            //Task 1: Spread update to neighbours.
+            println!("{} spreading updates.", self.id);
+            theme.next();
+            let chain_gossip = self.chain.clone();
+            let address_gossip = self.address.clone();
+            let random_neighbours = self.get_random_neighbours();
+            let new_neighbours = self.new_neighbours.clone();
+            let (sender, receiver) = broadcast::channel(16);
+            let gossip_receiver = sender.subscribe();
+            tokio::spawn(gossip(
+                address_gossip,
+                chain_gossip,
+                random_neighbours,
+                new_neighbours,
+                theme,
+                gossip_receiver,
+            ));
 
-            if self.role == Role::Miner {
-                if let Some(miner) = &self.miner {
-                    let mut miner = miner.lock().await;
-                    let mut buffer = self.transaction_buffer.take().unwrap_or_default();
+            //Task 2: Add local transactions to local miner or send them to remote miners.
+            println!("{} listening to transactions (miner).", self.id);
+            let receiver_clone = self.receiver.clone();
+            let neighbours = self.neighbours.clone();
+            let address = self.address.clone();
+            let miner_transaction_handle = self.miner.clone();
+            let log_sender = self.log_sender.clone();
+            tokio::spawn(listen_to_transactions(
+                receiver_clone,
+                neighbours,
+                address,
+                miner_transaction_handle,
+                log_sender,
+            ));
 
-                    miner.update_chain(&self.chain);
-                    miner.add_transactions(&mut buffer);
-                    miner.set_tx(buffer);
+            //Task 3: If this is miner, try to mine a block.
+            let miner_worker_handle = self.miner.clone();
+            let chain = self.chain.clone();
+            tokio::spawn(try_mine(self.id, miner_worker_handle, chain, mining_sender));
 
-                    let miner_sender = mining_sender.clone();
-                    tokio::spawn(async move {
-                        if let Some(chain) = miner.start_mining().await {
-                            miner_sender.send(chain).await.unwrap();
-                        }
-                    });
-
-                    self.transaction_buffer = Some(miner.take_tx());
-                }
-            }
+            //Task 3: Listen to possible updates the peers might have shared.
+            let _ = self
+                .listen_to_peers(sender, &mut mining_receiver, receiver)
+                .await;
         }
-    }
 
     /// Enters the network by contacting trackers and starts the node loop.
     pub async fn enter_and_node_loop(&mut self) -> Result<(), NodeLoopError> {
