@@ -8,137 +8,88 @@ use crate::node::{
 };
 use chain::chain::Chain;
 use chain::miner::miner::{ChainMeta, Miner};
-use tokio::sync::{
-    broadcast,
-    mpsc::{self, error::TryRecvError, Sender},
-    Mutex,
-};
-use wallet::transaction::block_entry_common::EntryDecodeError;
-use wallet::transaction::transaction::Transaction;
-
+use rand::prelude::*;
 use std::{
     collections::HashMap,
     io::{Error as IOError, Result as IOResult},
     str,
     sync::Arc,
 };
-
-use rand::prelude::*;
 use thiserror::Error;
+use tokio::sync::{
+    broadcast,
+    mpsc::{self, error::TryRecvError, Sender},
+    Mutex,
+};
 use tracing::{debug, info};
 use uuid::{self, Uuid};
-
+use wallet::transaction::block_entry_common::EntryDecodeError;
+use wallet::transaction::transaction::Transaction;
 #[allow(dead_code)]
 const DEFAULT_ADDRESS: &str = "127.0.0.1";
-
-// -------------------------------
-// Error Definitions
-// -------------------------------
-
-/// Errors that may occur when a node tries to enter the network.
+// ------------------------------- // Error Definitions // -------------------------------
 #[derive(Error, Debug)]
 pub enum EnterAttemptError {
-    /// No trackers were listening when attempting to enter.
     #[error("Failed to enter network - No trackers listening.")]
     NoListeners,
-    /// No trackers were available to contact.
     #[error("Failed to enter network - No trackers available.")]
     NoTrackers,
 }
-
-/// Errors that may occur when attempting to update the chain.
 #[derive(Error, Debug)]
 pub enum UpdateChainError {
-    /// No neighbours were listening for an update.
     #[error("Failed to update chain - No neighbours listening.")]
     NoListeners,
 }
-
-/// Errors returned when a node is in the wrong role for an operation.
 #[derive(Error, Debug, derive_more::From)]
 pub enum WrongRoleError {
-    /// The operation requires a node with role `Miner`.
     #[error("That operation requires a Node with Role Miner.")]
     NotMiner,
-    /// The operation requires a node with role `Tracker`.
     #[error("That operation requires a Node with Role Tracker.")]
     NotTracker,
 }
-
-/// Errors that may occur while listening on the network.
-#[derive(Error, Debug, derive_more::From)]
+#[derive(
+    Error, Debug, derive_more::From, derive_more::Display, Error, Debug, derive_more::From,
+)]
 pub enum ListenError {
-    /// The node is in the wrong role.
     #[error(transparent)]
     WrongRoleError(WrongRoleError),
-    /// Underlying I/O error.
     #[error(transparent)]
     IOError(IOError),
 }
-
-/// Errors that may occur while receiving a transaction.
 #[derive(Error, Debug, derive_more::From)]
 pub enum TransactionRecvError {
-    /// Failed to receive from channel.
     #[error(transparent)]
     TryRecvError(TryRecvError),
-    /// Failed to decode transaction from base64.
     #[error(transparent)]
     TransactionFromBase64Error(EntryDecodeError),
 }
-
-/// Errors that may occur during the main node loop.
 #[derive(Error, Debug, derive_more::From)]
 pub enum NodeLoopError {
-    /// Failed to enter the network.
     #[error(transparent)]
     EnterAttemptError(EnterAttemptError),
-    /// A gossip-related error occurred.
     #[error(transparent)]
     GossipError(GossipError),
 }
-
-// -------------------------------
-// Node Structure Definition
-// -------------------------------
-
-/// Represents a node in the network.  
-/// A node can act as a miner or tracker, hold a blockchain,
-/// manage neighbours, and handle transactions.
+// ------------------------------- // Node Structure Definition // -------------------------------
+#[allow(unused_variables)]
 #[derive(Clone)]
 pub struct Node {
-    /// Unique identifier of the node.
-    pub id: Uuid,
-    /// The role of this node (Miner or Tracker).
-    pub role: Role,
-    /// The network address of this node.
-    pub address: Arc<str>,
-    /// Buffer for storing transactions before they are mined.
-    pub transaction_buffer: Option<Vec<Transaction>>,
-    /// The blockchain this node maintains.
-    pub chain: Chain,
-    /// Current neighbours of this node, keyed by their UUID.
-    pub neighbours: HashMap<Uuid, Neighbour>,
-    /// Recently discovered neighbours awaiting integration.
-    pub new_neighbours: Vec<Neighbour>,
-    /// Whether this node has successfully joined the network.
-    pub initialized: bool,
-    /// Optional list of tracker addresses for joining the network.
-    pub trackers: Option<Vec<String>>,
-    /// Receiver for incoming messages and transactions.
-    pub receiver: Arc<Mutex<Receiver>>,
-    /// Local miner instance if this node is a miner.
-    pub miner: Option<Arc<Mutex<Miner>>>,
-    /// Optional sender for logging messages.
-    pub log_sender: Option<mpsc::Sender<String>>,
+    id: Uuid,
+    role: Role,
+    address: Arc<str>,
+    transaction_buffer: Option<Vec<Transaction>>,
+    chain: Chain,
+    neighbours: HashMap<Uuid, Neighbour>,
+    new_neighbours: Vec<Neighbour>,
+    initialized: bool,
+    trackers: Option<Vec<String>>,
+    receiver: Arc<Mutex<Receiver>>,
+    miner: Option<Arc<Mutex<Miner>>>,
+    log_sender: Option<mpsc::Sender<String>>,
 }
-
-// -------------------------------
-// Node Implementation
-// -------------------------------
-
+// ------------------------------- // Node Implementation // -------------------------------
 impl Node {
-    /// Creates a new `Node` instance.
+    /// Creates a new Node instance.
     pub fn new(
         role: Role,
         address: String,
@@ -148,7 +99,6 @@ impl Node {
     ) -> Self {
         let mut transaction_buffer = None;
         let mut miner = None;
-
         Node {
             id: Uuid::new_v4(),
             role,
@@ -164,36 +114,26 @@ impl Node {
             log_sender,
         }
     }
-
-    /// Sends a log message through the node's optional logger.
     pub async fn update_log(&self, log_msg: impl Into<String>) {
         if let Some(log_sender) = &self.log_sender {
             let _ = log_sender.send(log_msg.into()).await;
         }
     }
-
-    /// Returns the node's address.
     pub fn get_address(&self) -> Arc<str> {
         self.address.clone()
     }
-
     /// Queues a transaction into the node's transaction buffer.
     pub fn queue_transaction(&mut self, transaction: Transaction) {
         if let Some(buffer) = &mut self.transaction_buffer {
             buffer.push(transaction);
         }
     }
-
     /// Returns the number of neighbors this node has.
     pub fn get_n_neighbours(&self) -> usize {
         self.neighbours.len()
     }
-
-    // -------------------------------
-    // Network Operations
-    // -------------------------------
-
-       /// Main node loop that listens and processes various activities in the network.
+    // ------------------------------- // Network Operations // -------------------------------
+    /// Main node loop that listens and processes various activities in the network.
     pub async fn node_loop(&mut self) -> Result<(), GossipError> {
         debug!("{} starting node loop.", self.id);
         let mut theme = Theme::default();
@@ -217,7 +157,6 @@ impl Node {
                 theme,
                 gossip_receiver,
             ));
-
             //Task 2: Add local transactions to local miner or send them to remote miners.
             println!("{} listening to transactions (miner).", self.id);
             let receiver_clone = self.receiver.clone();
@@ -232,243 +171,333 @@ impl Node {
                 miner_transaction_handle,
                 log_sender,
             ));
-
             //Task 3: If this is miner, try to mine a block.
-            let miner_worker_handle = self.miner.clone();
-            let chain = self.chain.clone();
-            tokio::spawn(try_mine(self.id, miner_worker_handle, chain, mining_sender));
-
+            if self.role == Role::Miner {
+                let chain = self.chain.clone();
+                let chain_meta = ChainMeta {
+                    len: chain.len(),
+                    difficulty: chain.difficulty,
+                    blocks: chain.get_blocks(),
+                };
+                self.transaction_buffer = Some(vec![]);
+                self.miner = Some(Arc::new(Mutex::new(Miner::new(
+                    1,
+                    "miner".to_string(),
+                    chain_meta,
+                )))); //TODO: generate id and name
+                let miner_worker_handle = self.miner.clone();
+                tokio::spawn(try_mine(self.id, miner_worker_handle, chain, mining_sender));
+            }
             //Task 3: Listen to possible updates the peers might have shared.
             let _ = self
                 .listen_to_peers(sender, &mut mining_receiver, receiver)
                 .await;
         }
-
+    }
     /// Enters the network by contacting trackers and starts the node loop.
     pub async fn enter_and_node_loop(&mut self) -> Result<(), NodeLoopError> {
         self.enter_network().await?;
         self.node_loop().await?;
         Ok(())
     }
-
     /// Contacts trackers and attempts to join the network.
     pub async fn enter_network(&mut self) -> Result<(), EnterAttemptError> {
         if let Some(trackers) = &self.trackers {
-            if trackers.is_empty() {
-                return Err(EnterAttemptError::NoTrackers);
-            }
-
             for tracker in trackers {
-                let tracker = tracker.clone();
-                let reply = protocol::present_id(self.id, &self.address, &tracker)
-                    .await
-                    .ok();
-
-                if let Some(reply) = reply {
-                    let neighbour = Neighbour::new(tracker, Role::Tracker);
-                    self.neighbours.insert(reply.id, neighbour);
-                    self.initialized = true;
-                    return Ok(());
+                match gossip::greet(self.address.clone(), self.id, self.role, tracker).await {
+                    Ok(neighbour) => {
+                        self.neighbours.insert(neighbour.id, neighbour.clone());
+                        self.new_neighbours.push(neighbour);
+                        self.initialized = true;
+                        self.update_log("NeighbourAdded").await;
+                    }
+                    Err(_) => {
+                        println!("Node {} failed to greet tracker", self.id);
+                        continue;
+                    }
                 }
             }
-
-            Err(EnterAttemptError::NoListeners)
+            if !self.initialized {
+                return Err(EnterAttemptError::NoListeners);
+            }
+            Ok(())
         } else {
             Err(EnterAttemptError::NoTrackers)
         }
     }
-
     /// Leaves the network by sending farewell messages to all neighbours.
     pub async fn leave_network(&self) {
-        for neighbour in self.neighbours.values() {
-            protocol::remove_neighbour(&self.id, &self.address, neighbour).await;
+        for neighbour in &self.neighbours {
+            let _ = gossip::farewell(self.address.clone(), neighbour.1.address.clone()).await;
         }
     }
-
-    // -------------------------------
-    // Transaction and Chain Operations
-    // -------------------------------
-
-    /// Polls neighbours for chain updates and returns the first valid chain found.  
-    /// Returns an error if no neighbour responds.
+    // ------------------------------- // Transaction and Chain Operations // -------------------------------
     pub async fn update_chain(&self) -> Result<Chain, UpdateChainError> {
-        for neighbour in self.neighbours.values() {
-            if let Some(reply) = protocol::request_chain(&self.address, neighbour).await.ok() {
-                if let GossipReply::Chain(chain) = reply {
-                    return Ok(chain);
-                }
+        let cursor = self.neighbours.iter();
+        for (_id, neighbour) in cursor {
+            match gossip::poll_chain(self.address.clone(), neighbour).await {
+                Ok(chain) => return Ok(chain),
+                Err(_) => continue,
             }
         }
         Err(UpdateChainError::NoListeners)
     }
-
-    // -------------------------------
-    // Gossip and Neighbor Management
-    // -------------------------------
-
-    /// Returns a random subset of neighbours to gossip with.  
-    /// The number of neighbours chosen is proportional to √N.
-    pub fn get_random_neighbours(&self) -> Vec<Neighbour> {
-        let n = self.neighbours.len();
-        let k = (n as f64).sqrt().ceil() as usize;
-        let mut rng = thread_rng();
-        self.neighbours
-            .values()
-            .cloned()
-            .choose_multiple(&mut rng, k)
+    // ------------------------------- // Gossip and Neighbor Management // -------------------------------
+    #[allow(clippy::unwrap_used)]
+    // Random index guaranteed to be in range.
+    fn get_random_neighbours(&self) -> Vec<Neighbour> {
+        let mut neighbours = vec![];
+        let mut rng = rand::thread_rng();
+        let n = (self.neighbours.len() as f64).sqrt().floor() as usize;
+        for _ in 0..n {
+            let random_index = rng.gen_range(0..self.neighbours.len());
+            let random_key = self.neighbours.keys().nth(random_index).unwrap();
+            neighbours.push(self.neighbours.get(random_key).unwrap().clone());
+        }
+        neighbours
     }
-
-    // -------------------------------
-    // Listening and Chain Validation
-    // -------------------------------
-
-    /// Listens for incoming messages and processes them based on the protocol.  
-    /// Handles gossip replies, neighbour management, chain updates, and transactions.
+    // ------------------------------- // Listening and Chain Validation // -------------------------------
+    /// Listens for incoming messages and processes them based on the protocol.
     pub async fn listen_to_peers(
         &mut self,
         sender: broadcast::Sender<Chain>,
         mining_receiver: &mut mpsc::Receiver<Chain>,
         mut receiver: broadcast::Receiver<Chain>,
     ) -> Result<(), GossipError> {
-        let mut rec = self.receiver.lock().await;
-
-        if let Ok((sender_addr, buffer)) = rec.try_recv() {
-            if let Some(reply) = protocol::handle_message(
-                self,
-                sender_addr.clone(),
-                buffer.clone(),
-                &sender,
-                mining_receiver,
-                &mut receiver,
-            )
-            .await?
+        loop {
+            self.check_mined_chain_and_broadcast(&sender, mining_receiver);
+            self.check_peer_mined_chains(&mut receiver);
+            self.update_log(self.chain.len().to_string()).await;
+            let gossip_reply = match gossip::listen_to_gossip(self.address.clone()).await {
+                Ok(res) => match res {
+                    Some(gossip_reply) => {
+                        if gossip_reply.protocol == protocol::GREET {
+                            self.update_log("GossipGreetReply").await;
+                        }
+                        gossip_reply
+                    }
+                    None => return Ok(()),
+                },
+                Err(_) => return Ok(()),
+            };
+            let mut outter_transaction: Option<Transaction> = None;
             {
-                protocol::send_reply(&sender_addr, reply).await?;
+                let res = match gossip_reply.protocol {
+                    protocol::GREET => {
+                        self.present_id(gossip_reply.sender, gossip_reply.buffer)
+                            .await?
+                    }
+                    protocol::FAREWELL => self.remove_neighbour(gossip_reply.sender).await?,
+                    protocol::NEIGHBOUR => self.add_neighbour(gossip_reply.buffer).await?,
+                    protocol::TRANSACTION => self.add_transaction(gossip_reply.buffer).await?,
+                    protocol::CHAIN => self.get_chain(gossip_reply.buffer).await?,
+                    protocol::POLLCHAIN => self.share_chain().await?,
+                    _ => None,
+                    // Ignore unrecognized protocol with no error
+                };
+                if let Some(mut ptr) = res {
+                    if let Some(chain) = ptr.as_chain() {
+                        self.check_remote_chain_and_broadcast(chain.clone(), &sender);
+                    } else if let Some(transaction) = ptr.as_transaction() {
+                        if self.miner.is_some() {
+                            outter_transaction = Some(transaction.clone());
+                        }
+                    }
+                }
+            }
+            if let Some(t) = outter_transaction {
+                if let Some(miner) = self.miner.as_mut() {
+                    push_transaction(miner, t.clone()).await;
+                }
             }
         }
-
-        Ok(())
     }
-
-    /// Updates the node's chain if a mined chain from the local miner is longer,
-    /// and broadcasts the updated chain.
-    pub fn check_mined_chain_and_broadcast(
+    /// Updates the node's chain if the received chain is longer.
+    fn check_mined_chain_and_broadcast(
         &mut self,
         sender: &broadcast::Sender<Chain>,
         mining_receiver: &mut mpsc::Receiver<Chain>,
     ) {
-        if let Ok(chain) = mining_receiver.try_recv() {
-            if chain.meta().len > self.chain.meta().len {
-                self.chain = chain.clone();
-                let _ = sender.send(chain);
+        match mining_receiver.try_recv() {
+            Ok(mined_chain) => {
+                if mined_chain > self.chain {
+                    self.chain = mined_chain;
+                    let _ = sender.send(self.chain.clone());
+                }
             }
-        }
+            Err(TryRecvError::Empty) => (),
+            Err(TryRecvError::Disconnected) => (), //
+        };
     }
-
-    /// Updates the node's chain if a longer chain is received from peers,
-    /// and broadcasts it.
-    pub fn check_remote_chain_and_broadcast(
+    fn check_remote_chain_and_broadcast(
         &mut self,
         chain: Chain,
         sender: &broadcast::Sender<Chain>,
     ) {
-        if chain.meta().len > self.chain.meta().len {
-            self.chain = chain.clone();
-            let _ = sender.send(chain);
+        if chain > self.chain {
+            self.chain = chain;
+            let _ = sender.send(self.chain.clone());
         }
     }
-
-    // -------------------------------
-    // Neighbor Management
-    // -------------------------------
-
-    /// Handles the presentation of this node's ID when contacted by a neighbour.  
-    /// Adds the neighbour to the list and sends this node's ID back.
+    // ------------------------------- // Neighbor Management // -------------------------------
+    /// Handles the presentation of this node's ID when contacted by a neighbour.
     pub async fn present_id(
         &mut self,
         sender: String,
-        buffer: Vec<u8>,
+        mut buffer: Vec<u8>,
     ) -> Result<Option<Box<dyn Reply>>, GossipError> {
-        let id = Uuid::from_slice(&buffer)?;
-        let neighbour = Neighbour::new(sender.clone(), Role::Miner);
-        self.neighbours.insert(id, neighbour);
-        Ok(Some(Box::new(self.id)))
-    }
-
-    /// Removes a neighbour from the list based on the provided sender address.
-    pub async fn remove_neighbour(&mut self, sender: String) -> IOResult<Option<Box<dyn Reply>>> {
-        self.neighbours.retain(|_, n| n.address != sender);
+        buffer.remove(0);
+        let str_buffer = str::from_utf8(&buffer)
+            .map_err(|_| GossipError::InvalidReplyError)?
+            .trim();
+        let cleared = Node::sanitize(str_buffer.to_string());
+        let neighbour: Neighbour =
+            serde_json::from_str(&cleared).map_err(|_| GossipError::InvalidReplyError)?;
+        let hash_neighbour = neighbour.clone();
+        self.neighbours
+            .entry(hash_neighbour.id)
+            .or_insert(hash_neighbour);
+        self.new_neighbours.push(neighbour);
+        // Sending ID back to the sender
+        let _ = gossip::send_id(self.address.clone(), self.id, sender).await;
         Ok(None)
     }
-
+    /// Removes a neighbour from the list based on the provided sender address.
+    pub async fn remove_neighbour(&mut self, sender: String) -> IOResult<Option<Box<dyn Reply>>> {
+        self.neighbours.retain(|_, v| v.address != sender);
+        Ok(None)
+    }
     /// Adds a neighbour to this node's network from the provided buffer.
     pub async fn add_neighbour(
         &mut self,
-        buffer: Vec<u8>,
+        mut buffer: Vec<u8>,
     ) -> Result<Option<Box<dyn Reply>>, GossipError> {
-        let neighbour: Neighbour = bincode::deserialize(&buffer)?;
+        buffer.remove(0);
+        let str_buffer = str::from_utf8(&buffer).map_err(|_| GossipError::InvalidReplyError)?;
+        debug!("Received neighbour: {}", str_buffer);
+        let cleared = Node::sanitize(str_buffer.to_string());
+        let neighbour: Neighbour =
+            serde_json::from_str(&cleared).map_err(|_| GossipError::InvalidReplyError)?;
+        let hash_neighbour = neighbour.clone();
+        self.neighbours
+            .entry(hash_neighbour.id)
+            .or_insert(hash_neighbour);
         self.new_neighbours.push(neighbour);
         Ok(None)
     }
-
-    // -------------------------------
-    // Transaction Handling
-    // -------------------------------
-
-    /// Adds a transaction from the buffer, if this node is a miner.  
-    /// Returns the transaction as a `Reply` if valid.
+    // ------------------------------- // Transaction Handling // -------------------------------
+    /// Adds a transaction from the buffer, if this node is a miner.
     pub async fn add_transaction(
         &self,
-        buffer: Vec<u8>,
+        mut buffer: Vec<u8>,
     ) -> Result<Option<Box<dyn Reply>>, GossipError> {
-        let tx: Transaction = bincode::deserialize(&buffer)?;
-        if let Some(buffer) = &self.transaction_buffer {
-            let mut buffer = buffer.clone();
-            buffer.push(tx.clone());
-            Ok(Some(Box::new(tx)))
-        } else {
-            Ok(None)
+        if self.role != Role::Miner {
+            return Ok(None);
+            // We can enhance this later to return an error
         }
+        buffer.remove(0);
+        let str_buffer = str::from_utf8(&buffer).map_err(|_| GossipError::InvalidReplyError)?;
+        let transaction = Transaction::try_from(str_buffer.to_string())
+            .map_err(|_| GossipError::InvalidReplyError)?;
+        Ok(Some(Box::new(transaction)))
     }
-
-    // -------------------------------
-    // Chain Management
-    // -------------------------------
-
-    /// Receives a chain from the buffer and returns it as a `Reply`.
+    // ------------------------------- // Chain Management // -------------------------------
+    /// Receives a chain from the buffer and returns it.
     pub async fn get_chain(
         &mut self,
-        buffer: Vec<u8>,
+        mut buffer: Vec<u8>,
     ) -> Result<Option<Box<dyn Reply>>, GossipError> {
-        let chain: Chain = bincode::deserialize(&buffer)?;
+        buffer.remove(0);
+        let str_buffer = str::from_utf8(&buffer).map_err(|_| GossipError::InvalidReplyError)?;
+        let cleared = Node::sanitize(str_buffer.to_string());
+        let chain: Chain =
+            serde_json::from_str(&cleared).map_err(|_| GossipError::InvalidReplyError)?;
         Ok(Some(Box::new(chain)))
     }
-
     /// Shares the current chain with any requesting neighbour.
     pub async fn share_chain(&self) -> IOResult<Option<Box<dyn Reply>>> {
-        Ok(Some(Box::new(self.chain.clone())))
+        Ok(None)
+    }
+    // ------------------------------- // Utility Methods // -------------------------------
+    /// Sanitizes a string by only allowing alphanumeric characters and a few special characters.
+    fn sanitize(string: String) -> String {
+        let accepted_chars = " \",;:.-{}[]_=/+";
+        string
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || accepted_chars.contains(*c))
+            .collect()
+    }
+    fn check_peer_mined_chains(&mut self, receiver: &mut broadcast::Receiver<Chain>) {
+        let chain = receiver.try_recv();
+        if let Ok(recv_chain) = chain {
+            if recv_chain > self.chain {
+                self.chain = recv_chain;
+            }
+        }
     }
 }
-
-// -------------------------------
-// Public Free Functions
-// -------------------------------
-
-/// Submits a transaction to all neighbours with role `Miner`.
+/// Handles mining process if the node is a miner.
+async fn mine(miner: Arc<Mutex<Miner>>, mut chain: Chain) -> Chain {
+    let mut inner_miner = miner.lock().await;
+    let mut mining_in_progress = false;
+    while mining_in_progress {
+        inner_miner.set_chain_meta(chain.get_len(), chain.difficulty, chain.get_blocks());
+        if let Ok(mining_digest) = inner_miner.mine(chain.get_last_block()) {
+            info!("Mined block: {}", mining_digest.get_block());
+            let _ = chain.add_block(mining_digest);
+            mining_in_progress = true;
+        }
+    }
+    chain
+}
+// Submits a transaction to all miner neighbours.
 pub async fn submit_transaction(
     transaction: Transaction,
     neighbours: HashMap<Uuid, Neighbour>,
     address: Arc<str>,
 ) {
-    for neighbour in neighbours.values() {
-        if neighbour.role == Role::Miner {
-            let _ = protocol::submit_transaction(&transaction, &address, neighbour).await;
+    let _ = neighbours
+        .iter()
+        .filter(|neighbour| neighbour.1.role == Role::Miner)
+        // Filters only miners
+        .map(|miner| async {
+            gossip::send_transaction(
+                address.clone(),
+                miner.1.address.clone(),
+                transaction.clone(),
+            )
+            .await
+        })
+        .collect::<Vec<_>>();
+}
+/// Checks for local transactions to be added to new
+/// blocks locally if this node is a miner or to a remote
+/// miner if it is not.
+async fn listen_to_transactions(
+    receiver: Arc<Mutex<Receiver>>,
+    neighbours: HashMap<Uuid, Neighbour>,
+    address: Arc<str>,
+    miner: Option<Arc<Mutex<Miner>>>,
+    log_sender: Option<Sender<String>>,
+) {
+    match receive_transaction(receiver).await {
+        Ok(transaction) => {
+            println!("[{}] Transaction being received: {}", address, &transaction);
+            match miner {
+                Some(m) => {
+                    let mut miner_ref = m.clone();
+                    if let Some(sender) = log_sender {
+                        let _ = sender.send("Transaction Received".to_string()).await;
+                    }
+                    push_transaction(&mut miner_ref, transaction).await
+                }
+                _ => submit_transaction(transaction, neighbours, address).await,
+            };
         }
+        Err(e) => println!("[{}] receive transaction failed: {}", address, e),
     }
 }
-
-/// Handles the gossiping process with random neighbours,
-/// spreading either the chain or new neighbours depending on the theme.
+/// Handles the gossiping process with random neighbours, based on the provided theme.
 pub async fn gossip(
     address: Arc<str>,
     chain: Chain,
@@ -477,8 +506,69 @@ pub async fn gossip(
     theme: Theme,
     _receiver: broadcast::Receiver<Chain>,
 ) {
+    gossip::wait_gossip_interval().await;
     for neighbour in random_neighbours {
-        let _ =
-            protocol::gossip(&address, &chain, &new_neighbours, theme.clone(), &neighbour).await;
+        match theme {
+            Theme::Chain => {
+                if chain.get_len() > 0 {
+                    let _ = gossip::send_chain(
+                        address.clone(),
+                        neighbour.address.clone(),
+                        chain.clone(),
+                        //TODO: Shouldn't have to clone eveyt time.
+                    )
+                    .await;
+                }
+            }
+            Theme::NewNeighbours => {
+                if !new_neighbours.is_empty() {
+                    let _ = gossip::send_new_neighbours(
+                        neighbour.id,
+                        neighbour.address.clone(),
+                        address.clone(),
+                        new_neighbours.clone(),
+                    )
+                    .await;
+                }
+            }
+        }
     }
+}
+/// Receives a transaction.
+async fn receive_transaction(
+    receiver: Arc<Mutex<Receiver>>,
+) -> Result<Transaction, TransactionRecvError> {
+    let mut inner_receiver = receiver.lock().await;
+    let str_transaction = { inner_receiver.recv().await? };
+    match Transaction::try_from(str_transaction.to_owned()) {
+        Ok(transaction) => Ok(transaction),
+        Err(e) => Err(TransactionRecvError::TransactionFromBase64Error(e)), // Consider handling this more gracefully
+    }
+}
+async fn try_mine(
+    node_id: Uuid,
+    miner_opt: Option<Arc<Mutex<Miner>>>,
+    chain: Chain,
+    mining_sender: &'static mpsc::Sender<Chain>,
+) {
+    if let Some(miner) = miner_opt {
+        let current_chain = chain;
+        let loop_miner = miner.clone();
+        tokio::spawn(async move {
+            let new_chain = mine(loop_miner, current_chain.clone()).await;
+            info!(
+                "node {} has succefully mined a block and now it is: {}",
+                node_id, new_chain
+            );
+            match mining_sender.send(new_chain).await {
+                Ok(_) => (),
+                Err(e) => println!("Failed to send new chain due to {}", e),
+            }
+        });
+    }
+}
+
+async fn push_transaction(miner: &mut Arc<Mutex<Miner>>, transaction: Transaction) {
+    let mut inner = miner.lock().await;
+    inner.push_transaction(transaction);
 }
