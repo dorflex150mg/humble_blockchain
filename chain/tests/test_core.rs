@@ -46,7 +46,7 @@ pub fn test_core() {
     let t1 = Transaction::new(
         miner1.wallet.get_pub_key(),
         wallet1.get_pub_key(),
-        vec![String::try_from(one_token).unwrap()],
+        vec![one_token],
     );
     let signed_t1 = miner1.wallet.sign(t1);
 

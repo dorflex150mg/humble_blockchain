@@ -2,6 +2,8 @@ use std::fmt::{Debug, Display};
 use std::num::ParseIntError;
 use thiserror::Error;
 
+use crate::token::TokenConversionError;
+
 pub const TRANSACTION_BLOCK_MEMBER_IDENTIFIER: u8 = 0;
 pub const RECORD_BLOCK_MEMBER_IDENTIFIER: u8 = 1;
 
@@ -43,6 +45,7 @@ impl Into<u8> for BlockMemberId {
 pub enum EntryDecodeError {
     Base64Error(base64::DecodeError),
     ParseError(ParseIntError),
+    InvalidTokenError(TokenConversionError),
     InvalidIdError,
     WrongTypeError,
     InvalidTypeError,

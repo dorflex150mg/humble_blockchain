@@ -2,6 +2,7 @@ use crate::block::block::{self, Block, Hash};
 use crate::chain::Chain;
 
 use wallet::block_chain::BlockChainBlock;
+use wallet::token::Token;
 use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
@@ -134,10 +135,11 @@ impl Miner {
             block.nonce = rng.gen_range(0..=u64::MAX);
             let str_digest: Hash = block.calculate_hash();
             if str_digest.starts_with(&"0".repeat(self.chain.difficulty)) {
+                let token: Token = str_digest.clone().into();
                 let prize_transaction = Transaction::new(
                     ZERO_WALLET_PK.to_vec(),
                     self.wallet.get_pub_key(),
-                    vec![str_digest.to_string()],
+                    vec![token],
                 );
                 let signed_prize = self.wallet.sign(prize_transaction);
                 self.transactions.push(signed_prize); //TODO: this should be the 1st tx
@@ -150,28 +152,17 @@ impl Miner {
     }
 
     /// Sets the chain metadata for the miner.
-    ///
-    /// # Arguments
-    /// * `len` - The length of the blockchain.
-    /// * `difficulty` - The current difficulty for mining new blocks.
-    /// * `blocks` - The list of blocks in the blockchain.
     pub fn set_chain_meta(&mut self, chain: Chain) {
         self.chain = chain;
     }
 
     /// Sets the transactions for the miner.
-    ///
-    /// # Arguments
-    /// * `new_transactions` - The new list of transactions.
     #[allow(dead_code)]
     pub fn set_transactions(&mut self, new_transactions: Vec<Transaction>) {
         self.transactions = new_transactions;
     }
 
     /// Adds a new transaction to the miner's list of transactions.
-    ///
-    /// # Arguments
-    /// * `transaction` - The transaction to be added.
     pub fn push_transaction(&mut self, transaction: Transaction) {
         self.transactions.push(transaction);
     }
@@ -179,7 +170,8 @@ impl Miner {
     /// Checks the validity of the miner's transactions.
     ///
     /// # Returns
-    /// * `Result<Vec<Transaction>, MiningError>` - The result of the transaction validation.
+    /// * `Result<Vec<Transaction>, MiningError>` - Transaction when the transaction is correct and
+    /// MiningError when it is not.
     pub fn check_transactions(&self) -> Result<Vec<Transaction>, MiningError> {
         let filtered: Vec<Transaction> = self
             .transactions

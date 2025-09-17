@@ -1,5 +1,5 @@
 use chain::block::block::{Block, Hash, HASH_SIZE};
-use wallet::{transaction::transaction::Transaction, wallet::Wallet};
+use wallet::{token::Token, transaction::transaction::Transaction, wallet::Wallet};
 
 #[test]
 fn test_hash() {
@@ -15,11 +15,12 @@ fn test_block() {
     let block = Block::new(0, hash, String::new(), None);
     let empty: Vec<Transaction> = vec![];
     assert_eq!(block.get_transactions(), empty);
+    let token: Token = Hash::default().into();
 
     let transaction = Transaction::new(
         Wallet::new().get_pub_key(),
         Wallet::new().get_pub_key(),
-        vec![Hash::default().to_string()],
+        vec![token],
     );
     let new_block = Block::new(0, Hash::default(), transaction.clone().into(), None);
     //assert_eq!(new_block.get_transactions(), vec![transaction.clone()]);
