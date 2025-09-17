@@ -1,6 +1,5 @@
 use crate::block_chain::{BlockChain, BlockChainBlock};
 use crate::token::{Token, TOKEN_SIZE};
-use crate::transaction;
 use crate::transaction::block_entry_common::Sign;
 use crate::transaction::transaction::Transaction;
 
@@ -12,40 +11,61 @@ use ring::rand::SystemRandom;
 use ring::signature::{self, EcdsaKeyPair, KeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
 use std::fmt;
 
+/// A `Wallet` consists of a `[EcdsaKeyPair]`, utilized to generate its public key and to verify
+/// signatures, as well as copy of the tokens it possesses.
 pub struct Wallet {
+    /// The `EcdsaKeyPair` used to sign and verify `[BlockChainBlock]`.
     pub key_pair: EcdsaKeyPair,
+    /// A collection of tokens onwed by this wallet.
     pub coins: Vec<Token>,
     rng: SystemRandom,
 }
 
 #[derive(Debug, Error)]
+/// Error type for transactions attempts.
 pub enum TransactionErr {
+    /// Sender did not have sufficient balance.
     #[error(
         "The Transaction requires an amount of tokens greater than this Wallet has available."
     )]
     InsuficientBalance,
+    /// Transaction of 0 tokens.
     #[error("The Transaction token amount must be greater than 0.")]
     ZeroAmount,
+    /// Token in transaction has wrong encoding or size.
     #[error("Token used in this transaction, is not valid.")]
     InvalidToken,
+    /// Token is not owned by the sender.
     #[error("The last owner of Token {0} is not this transaction's spender.")]
     IncompleteChain(String),
 }
 
 #[derive(Debug, Error)]
+/// Error type for Chain verification.
 pub enum ChainVerificationError {
+    /// Signature verification error from `[SignatureError]`.
     #[error("{0}")]
     SignatureError(#[from] SignatureError),
+    /// The `Block.data` field's hash does not match the its hash field.
     #[error("Block check error. Expected hash {expected}, but got {got}")]
-    BlockCheckError { expected: String, got: String },
+    BlockCheckError {
+        /// Hash field value.
+        expected: String,
+        /// Calculated hash data.
+        got: String,
+    },
+    /// Transaction verification error from `[TransactionErr]`.
     #[error("{0}")]
     TransactionErr(#[from] TransactionErr),
 }
 
 #[derive(Debug, Error)]
+/// Error type for Signature verification.
 pub enum SignatureError {
     #[error("Verification for key {0:?} failed.")]
+    /// Signature verification failed.
     VerificationError(Vec<u8>),
+    /// No Signature present.
     #[error("Block Entry {0} has no Signature.")]
     NoSignatureError(String),
 }
@@ -61,6 +81,8 @@ fn generate_key_pair() -> (EcdsaKeyPair, SystemRandom) {
 }
 
 impl Wallet {
+    /// Instantiates a new `Wallet`;
+    #[must_use]
     pub fn new() -> Self {
         let (key_pair, rng) = generate_key_pair();
         Wallet {
@@ -70,17 +92,22 @@ impl Wallet {
         }
     }
 
+    /// Generates the public key from the `Wallet`'s key pair.
+    #[must_use]
     pub fn get_pub_key(&self) -> Vec<u8> {
         self.key_pair.public_key().as_ref().to_vec().clone()
     }
 
+    /// Pushes a token into the `Wallet`.
     pub fn add_coin(&mut self, coin: Token) {
         self.coins.push(coin);
     }
 
+    /// Returns a copy of the coins.
     #[allow(dead_code)]
+    #[must_use]
     pub fn get_coins(&self) -> Vec<Token> {
-        self.coins.to_vec()
+        self.coins.clone()
     }
 
     #[allow(dead_code)]
@@ -91,6 +118,7 @@ impl Wallet {
         Ok(())
     }
 
+    /// Signs a `[Sign]` object and returns the same value.
     #[allow(clippy::unwrap_used)]
     pub fn sign<T: Sign>(&self, mut entry: T) -> T {
         let vec = entry.get_payload();
