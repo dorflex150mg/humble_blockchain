@@ -18,6 +18,7 @@
 #![warn(clippy::large_enum_variant)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::missing_panics_doc)]
+#![allow(clippy::missing_errors_doc)]
 
 /// Module containing dependency inversion types for `Block` and `Chain`.
 pub mod block_chain;

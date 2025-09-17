@@ -133,6 +133,7 @@ impl Wallet {
         entry
     }
 
+    /// Verifies the signature in a `[Sign]` object.
     pub fn verify<T: Sign>(
         &self,
         entry: &T,
@@ -153,6 +154,13 @@ impl Wallet {
         Err(SignatureError::NoSignatureError(entry.to_string()))
     }
 
+    /// Verifies a `[BlockChain]` object.
+    /// 1 - Verifies that all block's hashes match the block's data.
+    /// 2 - Verifies the continuity of the chain, i.e., that each block is followed by another that
+    ///   references it.
+    /// 3 - Goes through each `[Block]`'s `[Transaction]`s and verifies that they are signed by their
+    ///   respective senders and verifies that the senders own the `[Tokens]`they have spent.
+    /// 4 - Verifies that `[Record]`s are signed by their respective senders.
     pub fn verify_chain(&self, chain: &dyn BlockChain) -> Result<(), ChainVerificationError> {
         let last_block = &chain.get_last_block();
         let mut previous_block_hash = last_block.get_previous_hash();
@@ -204,7 +212,8 @@ impl Wallet {
     }
 
     #[allow(dead_code, clippy::unwrap_used)]
-    pub fn submit_transaction(
+    /// Creates a `[Sign]` from this `[Wallet]` to a receiver, identified by its public key.
+    pub fn submit_block_entry(
         &mut self,
         receiver: Vec<u8>,
         amount: usize,
@@ -219,7 +228,10 @@ impl Wallet {
                 String::from_utf8((*coin).to_vec()).map_err(|_| TransactionErr::InvalidToken)
             })
             .collect::<Result<Vec<String>, _>>()?;
-        let coins = coin_res.iter().map(|c| c.to_string()).collect();
+        let coins = coin_res
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
 
         Ok(self.sign(Transaction::new(
             self.key_pair.public_key().as_ref().to_vec(),
