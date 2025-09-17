@@ -1,4 +1,7 @@
-use crate::transaction::block_entry_common::{BlockMemberId, EntryDecodeError, Sign};
+use crate::{
+    token::Token,
+    transaction::block_entry_common::{BlockMemberId, EntryDecodeError, Sign},
+};
 use base64::{engine::general_purpose, Engine as _};
 use std::fmt::{Debug, Display};
 use uuid::Uuid;
@@ -6,6 +9,8 @@ use uuid::Uuid;
 /// Number of fields in a Record.
 pub const N_RECORD_FIELDS: usize = 6;
 
+#[allow(clippy::struct_field_names)]
+/// A key value entry to be recorded in `[BlockChainBlock]`.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Record {
     block_entry_type_id: BlockMemberId,
@@ -14,20 +19,30 @@ pub struct Record {
     key: String,
     value: Vec<u8>,
     signature: Option<Vec<u8>>,
+    tokens: Vec<Token>,
 }
 
 impl Record {
-    pub fn new(poster: Vec<u8>, key: impl Into<String>, value: Vec<u8>) -> Self {
+    /// Creates a new Record with the poster `[Wallet]` public key, the key and value.
+    pub fn new(
+        poster: Vec<u8>,
+        key: impl Into<String>,
+        value: Vec<u8>,
+        tokens: Vec<Token>,
+    ) -> Self {
         Record {
             block_entry_type_id: BlockMemberId::Record,
             record_id: Uuid::new_v4(),
             poster_pk: poster,
             key: key.into(),
             value,
+            tokens,
             signature: None,
         }
     }
 
+    /// Returns the sender `[Wallet]` public key.
+    #[must_use]
     pub fn get_sender_pk(&self) -> Vec<u8> {
         self.poster_pk.clone()
     }
@@ -48,16 +63,27 @@ impl TryFrom<String> for Record {
         if ident != BlockMemberId::Record {
             return Err(EntryDecodeError::WrongTypeError);
         }
-        let signature = match fields[5] {
+        let signature = match fields[6] {
             "" => None,
-            _ => general_purpose::STANDARD.decode(fields[5]).ok(),
+            _ => general_purpose::STANDARD.decode(fields[6]).ok(),
         };
+        let tokens: Vec<Token> = fields[5]
+            .split(",")
+            .map(|t| {
+                let token: Result<Token, EntryDecodeError> = t
+                    .to_string()
+                    .try_into()
+                    .map_err(|e| EntryDecodeError::InvalidTokenError(e));
+                token
+            })
+            .collect::<Result<_, _>>()?;
         Ok(Record {
             block_entry_type_id: ident,
             record_id: Uuid::parse_str(fields[1]).map_err(|_| EntryDecodeError::InvalidIdError)?,
             poster_pk: general_purpose::STANDARD.decode(fields[2])?,
             key: fields[3].to_owned(),
             value: general_purpose::STANDARD.decode(fields[4])?,
+            tokens,
             signature,
         })
     }

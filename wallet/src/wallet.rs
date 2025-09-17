@@ -222,21 +222,11 @@ impl Wallet {
             return Err(TransactionErr::ZeroAmount);
         }
         self.check_balance(amount)?;
-        let coin_res: Vec<String> = (0..amount)
-            .map(|_| self.coins.pop().unwrap())
-            .map(|coin| {
-                String::from_utf8((*coin).to_vec()).map_err(|_| TransactionErr::InvalidToken)
-            })
-            .collect::<Result<Vec<String>, _>>()?;
-        let coins = coin_res
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect();
-
+        let tokens: Vec<Token> = (0..amount).map(|_| self.coins.pop().unwrap()).collect();
         Ok(self.sign(Transaction::new(
             self.key_pair.public_key().as_ref().to_vec(),
             receiver,
-            coins,
+            tokens,
         )))
     }
 
@@ -248,11 +238,12 @@ impl Wallet {
     ///
     /// # Returns
     /// * `Result<Transaction, InvalidTransactionErr>` - Returns the validated transaction if successful, or an error if validation fails.
+    #[allow(clippy::unwrap_used)]
     pub fn check_transaction_tokens(
         transaction: &Transaction,
         blocks: &[Box<dyn BlockChainBlock>],
     ) -> Result<(), TransactionErr> {
-        let tokens: &Vec<String> = &transaction.coins;
+        let tokens: &Vec<Token> = &transaction.tokens;
         for token in tokens {
             //verify each coin is valid:
             let mut coin_found: bool = false;
@@ -260,13 +251,15 @@ impl Wallet {
                 //check each block
                 for t in block.get_transactions() {
                     //check each transaction in the block
-                    if t.coins[0] == *token {
+                    if t.tokens[0] == *token {
                         coin_found = true; //if the coin gets found, check if the spender is
                                            //the last owner of the coin
                         if t.receiver_pk != transaction.get_sender_pk() {
                             // fail if sender doesnt own the
                             // coin
-                            return Err(TransactionErr::IncompleteChain(token.into()));
+                            return Err(TransactionErr::IncompleteChain(
+                                token.clone().try_into().unwrap(),
+                            ));
                         }
                         break;
                     }
