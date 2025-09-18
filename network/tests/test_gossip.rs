@@ -37,7 +37,7 @@ async fn send_transaction_loop(mut tx: mpsc::Sender<String>, iterations: Option<
         let t1 = make_up_transaction();
         //println!("[transaction loop]: Sending transaction...");
         // Send the transaction over the channel
-        if let Err(e) = tx.send(t1.into()).await {
+        if tx.send(t1.into()).await.is_err() {
             //println!("Error sending transaction: {}", e);
         }
         // Sleep for 500 milliseconds between sends
@@ -158,7 +158,7 @@ pub async fn test_gossip() {
         log_strings = recv_3(log_receiver) => {
             let mut rev = log_strings.iter().rev().peekable();
             let mut mined_blocks = 0;
-            let mut transaction_ack = None;
+            //let mut transaction_ack = None;
             let mut neighbour_added = 0;
             while rev.peek().is_some() {
                 let next = rev.next().unwrap();
@@ -166,7 +166,7 @@ pub async fn test_gossip() {
                 if next.parse::<usize>().is_ok() {
                     mined_blocks += 1;
                 } else if next == "Transaction Received" {
-                    transaction_ack = Some(next);
+                    //transaction_ack = Some(next);
                 } else if next == "NeighbourAdded" {
                     neighbour_added += 1;
                 }

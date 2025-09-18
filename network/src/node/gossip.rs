@@ -4,7 +4,6 @@ use crate::node::protocol;
 use chain::chain::Chain;
 use wallet::transaction::transaction::Transaction;
 
-use std::str::Utf8Error;
 use std::{
     io::{Error as IOError, Result as IOResult},
     str,
@@ -17,25 +16,37 @@ use tokio::{io::ErrorKind, net::UdpSocket, time::timeout};
 use tracing::debug;
 use uuid::Uuid;
 
+use std::boxed::Box;
+
 // Constants
+/// Back-off for gossip messages in seconds.
 pub const GOSSIP_INTERVAL: u64 = 3;
+/// Length of UUID string representation.
 pub const UUID_LENGTH: usize = 36;
+/// Max size of a UDP datagram.
 pub const MAX_DATAGRAM_SIZE: usize = 65507;
 
 /// Enum to represent potential errors in the gossip protocol.
 #[derive(Error, Debug, derive_more::From)]
 pub enum GossipError {
     #[error(transparent)]
+    /// IO Error.
     IOError(IOError),
     #[error("Attempted to read and got would block.")]
+    /// Would block.
     WouldBlock(ErrorKind),
+    /// Failed to decode the reply.
     #[error("InvalidReplyError")]
     InvalidReplyError,
 }
 
+/// Represents the reply to a Gossip message.
 pub struct GossipReply {
+    /// Identifiy the kind of replu.
     pub protocol: u8,
+    /// Sender's ip.
     pub sender: String,
+    /// Contents of the reply.
     pub buffer: Vec<u8>,
 }
 
@@ -49,6 +60,7 @@ pub struct GossipReply {
 ///
 /// # Returns
 /// * `IOResult<Neighbour>` - The tracker as a `Neighbour` instance.
+#[allow(clippy::unwrap_used, clippy::single_match_else)]
 pub async fn greet(
     address: Arc<str>,
     id: Uuid,
@@ -61,7 +73,6 @@ pub async fn greet(
         address: (*address.clone()).to_owned(),
         role,
     };
-    #[allow(clippy::unwrap_used)]
     let neighbour_str: String = serde_json::to_string(&greeter).unwrap();
     let mut buffer = vec![protocol::GREET];
     buffer.extend_from_slice(neighbour_str.as_bytes());
@@ -134,11 +145,11 @@ pub async fn poll_chain(address: Arc<str>, neighbour: &Neighbour) -> Result<Chai
     let buffer = [protocol::POLLCHAIN];
     socket.send_to(&buffer, &neighbour.address).await?;
 
-    let mut recv_buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
+    let mut recv_buffer: Box<[u8]> = vec![0; MAX_DATAGRAM_SIZE].into_boxed_slice();
     socket.recv_from(&mut recv_buffer).await?;
 
     let chain_str = str::from_utf8(&recv_buffer).map_err(|_| GossipError::InvalidReplyError)?;
-    Ok(serde_json::from_str(chain_str).map_err(|_| GossipError::InvalidReplyError)?)
+    serde_json::from_str(chain_str).map_err(|_| GossipError::InvalidReplyError)
 }
 
 /// Sends a copy of the blockchain to a specified neighbour.
@@ -204,11 +215,12 @@ pub async fn wait_gossip_interval() {
 ///
 /// # Returns
 /// * `Result<Option<(u8, String, Vec<u8>)>, GossipError>` - The gossip message protocol, sender, and data.
+#[allow(clippy::manual_let_else, clippy::single_match_else)]
 pub async fn listen_to_gossip(address: Arc<str>) -> Result<Option<GossipReply>, GossipError> {
     let socket = UdpSocket::bind(address.as_ref()).await?;
-    let mut buffer: [u8; MAX_DATAGRAM_SIZE] = [0; MAX_DATAGRAM_SIZE];
+    let mut buffer: Box<[u8]> = vec![0; MAX_DATAGRAM_SIZE].into_boxed_slice();
 
-    println!("[{}] Listening for gossip...", address);
+    println!("[{address}] Listening for gossip...");
 
     let (n_bytes, sender) = match timeout(Duration::new(3, 0), socket.recv_from(&mut buffer)).await
     {

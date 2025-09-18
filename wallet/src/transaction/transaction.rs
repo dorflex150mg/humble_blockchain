@@ -1,5 +1,5 @@
 use crate::{
-    token::{Token, TokenConversionError},
+    token::Token,
     transaction::block_entry_common::{BlockMemberId, EntryDecodeError, Sign},
 };
 use base64::{engine::general_purpose, Engine as _};

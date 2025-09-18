@@ -1,8 +1,11 @@
 use chain::chain::Chain;
 use wallet::transaction::transaction::Transaction;
 
+/// Trait to wrap datastructure to be sent through the gossip protocol as a trait object.
 pub trait Reply {
+    /// Unwraps into a `[Transaction]`.
     fn as_transaction(&mut self) -> Option<&mut Transaction>;
+    /// Unwraps into a `[Chain]`.
     fn as_chain(&mut self) -> Option<&mut Chain>;
 }
 

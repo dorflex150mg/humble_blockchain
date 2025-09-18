@@ -46,11 +46,8 @@ mod tests {
         let wallet2 = Wallet::new();
         let coin = Token::try_from("0".repeat(64)).unwrap();
         wallet1.add_coin(coin.clone());
-        let transaction1 = Transaction::new(
-            wallet1.get_pub_key(),
-            wallet2.get_pub_key(),
-            vec![coin.try_into().unwrap()],
-        );
+        let transaction1 =
+            Transaction::new(wallet1.get_pub_key(), wallet2.get_pub_key(), vec![coin]);
         let signed = wallet1.sign(transaction1);
         assert!(wallet1.verify(&signed, None).is_ok());
         assert!(wallet2.verify(&signed, None).is_err());
@@ -64,7 +61,7 @@ mod tests {
         let unsigned_tx = Transaction::new(
             wallet1.get_pub_key(),
             wallet2.get_pub_key(),
-            vec![another_coin.try_into().unwrap()],
+            vec![another_coin],
         );
         assert!(wallet1.verify(&unsigned_tx, None).is_err());
     }

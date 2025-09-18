@@ -4,16 +4,25 @@ use std::fmt;
 use thiserror::Error;
 use uuid::Uuid;
 
+/// Represents the role a node can have in the network
 #[derive(Clone, PartialEq, Copy)]
 pub enum Role {
+    /// A tracker node that helps other nodes discover the network
     Tracker,
+    /// A regular peer node in the network
     Node,
+    /// A miner node that can create new blocks
     Miner,
 }
 
+/// Error returned when an unknown protocol value is received
 #[derive(Error, Debug, derive_more::From)]
 pub enum WrongProtocolError {
-    UnknownProtocol { protocol: u32 },
+    /// The protocol value is not recognized
+    UnknownProtocol {
+        /// Unknown protocol number.
+        protocol: u32,
+    },
 }
 
 impl fmt::Display for WrongProtocolError {
@@ -23,6 +32,11 @@ impl fmt::Display for WrongProtocolError {
 }
 
 impl Role {
+    /// Converts a Role to its protocol representation
+    ///
+    /// # Returns
+    /// The protocol number for this role
+    #[must_use]
     pub fn to_protocol(&self) -> u32 {
         match self {
             Role::Tracker => 0,
@@ -31,6 +45,13 @@ impl Role {
         }
     }
 
+    /// Creates a Role from its protocol representation
+    ///
+    /// # Arguments
+    /// * `protocol` - The protocol number
+    ///
+    /// # Returns
+    /// The corresponding Role or an error if the protocol is unknown
     pub fn from_protocol(protocol: u32) -> Result<Self, WrongProtocolError> {
         match protocol {
             0 => Ok(Role::Tracker),
@@ -41,10 +62,14 @@ impl Role {
     }
 }
 
+/// Represents a neighbor node in the network
 #[derive(Clone)]
 pub struct Neighbour {
+    /// Unique identifier for this neighbor
     pub id: Uuid,
+    /// Network address of this neighbor
     pub address: String,
+    /// Role of this neighbor in the network
     pub role: Role,
 }
 
@@ -79,6 +104,7 @@ impl Serialize for Neighbour {
 
 struct RoleVisitor;
 
+#[allow(clippy::elidable_lifetime_names)]
 impl<'de> Visitor<'de> for RoleVisitor {
     type Value = Role;
 
@@ -92,7 +118,7 @@ impl<'de> Visitor<'de> for RoleVisitor {
     {
         match Role::from_protocol(value) {
             Ok(v) => Ok(v),
-            Err(e) => Err(E::custom(format!("{}", e))),
+            Err(e) => Err(E::custom(format!("{e}"))),
         }
     }
 }
@@ -124,6 +150,7 @@ impl<'de> Deserialize<'de> for Neighbour {
             {
                 struct FieldVisitor;
 
+                #[allow(clippy::elidable_lifetime_names)]
                 impl<'de> Visitor<'de> for FieldVisitor {
                     type Value = Field;
 
@@ -164,7 +191,6 @@ impl<'de> Deserialize<'de> for Neighbour {
                 let mut id = None;
                 let mut address = None;
                 let mut role = None;
-
                 while let Some(key) = map.next_key()? {
                     match key {
                         Field::Id => {
