@@ -145,6 +145,7 @@ impl Block {
     ///
     /// # Returns
     /// * `Self` - The newly created block.
+    #[must_use]
     pub fn new(index: usize, previous_hash: Hash, data: String, hash: Option<Hash>) -> Self {
         let timestamp: u64 = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -185,6 +186,7 @@ impl Block {
     ///
     /// # Returns
     /// * `Vec<Transaction>` - A vector of transactions contained in the block.
+    #[must_use]
     pub fn get_transactions(&self) -> Vec<Transaction> {
         let mut transactions: Vec<Transaction> = vec![];
         let mut iter = self.data.chars().peekable();
@@ -202,6 +204,7 @@ impl Block {
     ///
     /// # Returns
     /// * `Hash` - The hash of the block.
+    #[must_use]
     pub fn get_hash(&self) -> Hash {
         self.hash.clone()
     }
@@ -211,6 +214,7 @@ impl Block {
     ///
     /// # Returns
     /// * `Hash` - The calculated hash of the block.
+    #[must_use]
     pub fn calculate_hash(&self) -> Hash {
         let str_block: String = format!(
             "{}{}{}{}{}{}",

@@ -44,6 +44,7 @@ impl MiningDigest {
     ///
     /// # Returns
     /// * `Self` - The newly created `MiningDigest`.
+    #[must_use]
     pub fn new(block: Block, nonce: u64) -> Self {
         MiningDigest { block, nonce }
     }
@@ -52,6 +53,7 @@ impl MiningDigest {
     ///
     /// # Returns
     /// * `Block` - The block that was mined.
+    #[must_use]
     pub fn get_block(&self) -> Block {
         self.block.clone()
     }
@@ -60,6 +62,7 @@ impl MiningDigest {
     ///
     /// # Returns
     /// * `u64` - The nonce used to mine the block.
+    #[must_use]
     pub fn get_nonce(&self) -> u64 {
         self.nonce
     }
@@ -87,8 +90,11 @@ impl fmt::Display for UninitializedChainMetaErr {
 pub struct Miner {
     id: u64,
     name: String,
+    /// The `[Miner]`'s `[Wallet]`. Newly mined `[Token]`s are added here.
     pub wallet: Wallet,
+    /// `[Transaction]` buffer to insert at a `[Block]`.
     pub transactions: Vec<Transaction>,
+    /// `[Chain]` to which this miner submits newly mined `[Block]`s.
     pub chain: Chain,
 }
 
@@ -102,6 +108,7 @@ impl Miner {
     ///
     /// # Returns
     /// * `Self` - The newly created miner.
+    #[must_use]
     pub fn new(id: u64, name: String, chain: Chain) -> Self {
         Miner {
             id,
@@ -117,6 +124,7 @@ impl Miner {
     /// # Returns
     /// * `String` - The name of the miner.
     #[allow(dead_code)]
+    #[must_use]
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -170,8 +178,7 @@ impl Miner {
     /// Checks the validity of the miner's transactions.
     ///
     /// # Returns
-    /// * `Result<Vec<Transaction>, MiningError>` - Transaction when the transaction is correct and
-    /// MiningError when it is not.
+    /// * `Result<Vec<Transaction>, MiningError>` - Transaction when the transaction is correct and `[MiningError]` when it is not.
     pub fn check_transactions(&self) -> Result<Vec<Transaction>, MiningError> {
         let filtered: Vec<Transaction> = self
             .transactions
@@ -183,7 +190,7 @@ impl Miner {
                     .iter()
                     .map(|b| Box::new(b.clone()) as Box<dyn BlockChainBlock>)
                     .collect();
-                Wallet::check_transaction_tokens(&transaction, boxed_blocks.as_slice())
+                Wallet::check_transaction_tokens(transaction, boxed_blocks.as_slice())
                     .and(Ok(transaction.clone()))
                     .ok()
             })

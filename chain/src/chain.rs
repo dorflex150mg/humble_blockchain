@@ -1,4 +1,4 @@
-use crate::block::block::{Block, Hash, HASH_SIZE};
+use crate::block::block::{Block, Hash};
 use crate::miner::miner::MiningDigest;
 
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ impl fmt::Display for Chain {
         let str_blocks: String = self
             .blocks
             .iter()
-            .map(|b| b.to_string())
+            .map(std::string::ToString::to_string)
             .collect::<Vec<String>>()
             .join(" | ");
         write!(
@@ -67,9 +67,19 @@ pub enum BlockCheckError {
     /// Error for when the block's hash does not satisfy the current difficulty level.
     InvalidPrefix(usize),
     /// Error for when the previous block's hash is not found in the chain.
-    NotInChain { expected: String, got: String },
+    NotInChain {
+        /// Expected previous hash.
+        expected: String,
+        /// Actual previous hash.
+        got: String,
+    },
     /// Error for when the block's hash does not match the expected hash.
-    WrongHash { expected: String, got: String },
+    WrongHash {
+        /// Expected block hash.
+        expected: String,
+        /// Actual block hash.
+        got: String,
+    },
 }
 
 impl fmt::Display for BlockCheckError {
@@ -78,21 +88,18 @@ impl fmt::Display for BlockCheckError {
         match self {
             BlockCheckError::WrongIndex(expected, got) => write!(
                 f,
-                "Wrong index. Expected index {}, but the mined block index was {}",
-                expected, got
+                "Wrong index. Expected index {expected}, but the mined block index was {got}",
             ),
             BlockCheckError::InvalidPrefix(difficulty) => write!(
                 f,
-                "Invalid prefix - Not enough \"0\"s at the beginning. Current difficulty: {}",
-                difficulty
+                "Invalid prefix - Not enough \"0\"s at the beginning. Current difficulty: {difficulty}",
             ),
             BlockCheckError::NotInChain { expected, got } => write!(
                 f,
-                "Previous hash not in chain. Expected: {}, but got: {}",
-                expected, got
+                "Previous hash not in chain. Expected: {expected}, but got: {got}",
             ),
             BlockCheckError::WrongHash { expected, got } => {
-                write!(f, "Wrong hash. Expected: {}, but got: {}", expected, got)
+                write!(f, "Wrong hash. Expected: {expected}, but got: {got}")
             }
         }
     }
@@ -103,8 +110,9 @@ impl Chain {
     ///
     /// # Returns
     /// A new instance of `Chain`.
+    #[must_use]
     pub fn new() -> Self {
-        let genesis_block = Block::new(0, Hash::default(), String::from(""), Some(Hash::default()));
+        let genesis_block = Block::new(0, Hash::default(), String::new(), Some(Hash::default()));
         let id = Uuid::new_v4();
         let mut chain = Chain {
             id,
@@ -114,7 +122,7 @@ impl Chain {
         };
         let genesis_mining_digest = MiningDigest::new(genesis_block, 0);
         #[allow(clippy::unwrap_used)]
-        chain.add_block(genesis_mining_digest).unwrap();
+        chain.add_block(&genesis_mining_digest).unwrap();
         chain
     }
 
@@ -122,10 +130,13 @@ impl Chain {
     ///
     /// # Returns
     /// The number of blocks in the chain.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Checks if the chain is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -151,7 +162,7 @@ impl Chain {
         let mut hasher = Sha256::new();
         hasher.update(data);
         let digest = hasher.finalize();
-        let digest_str = format!("{:x}", digest);
+        let digest_str = format!("{digest:x}");
 
         if block_index != self.len + 1 {
             return Err(BlockCheckError::WrongIndex(self.len + 1, block_index));
@@ -191,7 +202,8 @@ impl Chain {
     ///
     /// # Returns
     /// The last `Block` in the chain.
-    #[allow(unwrap_used)]
+    #[allow(clippy::unwrap_used)]
+    #[must_use]
     pub fn get_last_block(&self) -> Block {
         self.blocks.iter().last().unwrap().clone() // It is impossible to have a chain with 0 blocks.
     }
@@ -204,7 +216,7 @@ impl Chain {
     ///
     /// # Returns
     /// A `Result` which is `Ok` if the block is added successfully or contains a `BlockCheckError` if the block is invalid.
-    pub fn add_block(&mut self, mining_digest: MiningDigest) -> Result<(), BlockCheckError> {
+    pub fn add_block(&mut self, mining_digest: &MiningDigest) -> Result<(), BlockCheckError> {
         let block = mining_digest.get_block();
         let nonce = mining_digest.get_nonce();
         if block.index != 0 {
@@ -231,6 +243,7 @@ impl Chain {
     }
 
     /// Returns the length of the chain (number of blocks).
+    #[must_use]
     pub fn get_len(&self) -> usize {
         self.len
     }
@@ -244,8 +257,9 @@ impl Chain {
     ///
     /// # Returns
     /// A vector of `Block`s.
+    #[must_use]
     pub fn get_blocks(&self) -> Vec<Block> {
-        self.blocks.to_vec() // creates a new vec.
+        self.blocks.clone()
     }
 }
 

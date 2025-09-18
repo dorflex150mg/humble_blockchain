@@ -9,20 +9,30 @@ use std::{
 };
 use uuid::Uuid;
 
+/// Number of fields in a Transaction.
 pub const N_TRANSACTION_FIELDS: usize = 7;
 
+#[allow(clippy::struct_field_names)]
 #[derive(Clone, PartialEq, Eq, Debug)]
+/// `[Transaction]`s change ownership a `[Token]` vector from a  `[Wallet]`, idetified by its public
+/// key `sender_pk` to a receiver `[Wallet]`, identified by its public key `receiver_pk`. For a
+/// transaction to be valid, the sender must add its signature to the `signature` field and a miner
+/// must submit it to a `[BlockChain]`.
 pub struct Transaction {
-    pub block_entry_type_id: BlockMemberId,
-    pub transaction_id: Uuid,
-    pub sender_pk: Vec<u8>,
+    block_entry_type_id: BlockMemberId,
+    transaction_id: Uuid,
+    sender_pk: Vec<u8>,
+    /// The public key of the receiver's `[Wallet]`.
     pub receiver_pk: Vec<u8>,
-    pub timestamp: u64,
+    timestamp: u64,
+    /// The `[Token]`s given by the sender to the receiver.
     pub tokens: Vec<Token>,
-    pub signature: Option<Vec<u8>>,
+    signature: Option<Vec<u8>>,
 }
 
 impl Transaction {
+    /// Creates a new Transaction.
+    #[must_use]
     pub fn new(sender: Vec<u8>, receiver: Vec<u8>, coins: Vec<Token>) -> Self {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -39,6 +49,8 @@ impl Transaction {
         }
     }
 
+    /// Returns the sender's public key.
+    #[must_use]
     pub fn get_sender_pk(&self) -> Vec<u8> {
         self.sender_pk.clone()
     }
