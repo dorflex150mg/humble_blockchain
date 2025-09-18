@@ -5,3 +5,4 @@ members = [
     "network",
     "app"
 ]
+resolver = "2"
