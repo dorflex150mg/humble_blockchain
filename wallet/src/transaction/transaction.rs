@@ -64,7 +64,7 @@ impl TryFrom<String> for Transaction {
             _ => general_purpose::STANDARD.decode(fields[6]).ok(),
         };
 
-        let tokens: Vec<Token> = fields[4]
+        let tokens: Vec<Token> = fields[5]
             .split(',')
             .map(|t| {
                 let token: Result<Token, EntryDecodeError> = t
@@ -81,8 +81,8 @@ impl TryFrom<String> for Transaction {
                 .map_err(|_| EntryDecodeError::InvalidIdError)?,
             sender_pk: general_purpose::STANDARD.decode(fields[2])?,
             receiver_pk: general_purpose::STANDARD.decode(fields[3])?,
+            timestamp: fields[4].parse::<u64>()?,
             tokens,
-            timestamp: fields[5].parse::<u64>()?,
             signature,
         })
     }
@@ -99,9 +99,9 @@ impl Into<String> for Transaction {
                 s
             })
             .collect();
+
         let joined_tokens = str_tokens.join(",");
         let block_entry_type_id: u8 = self.block_entry_type_id.into();
-
         let signature = match &self.signature {
             Some(s) => general_purpose::STANDARD.encode(s.as_slice()).to_string(),
             None => String::new(),
@@ -113,8 +113,8 @@ impl Into<String> for Transaction {
             self.transaction_id.as_hyphenated(),
             general_purpose::STANDARD.encode(&self.sender_pk),
             general_purpose::STANDARD.encode(&self.receiver_pk),
-            joined_tokens,
             self.timestamp,
+            joined_tokens,
             signature,
         )
     }
@@ -131,6 +131,7 @@ impl fmt::Display for Transaction {
                 s
             })
             .collect();
+
         write!(
             f,
             "timestamp: {}, sender: {:?}, receiver: {:?}, coins: {}",

@@ -18,8 +18,8 @@ pub struct Record {
     poster_pk: Vec<u8>,
     key: String,
     value: Vec<u8>,
-    signature: Option<Vec<u8>>,
     tokens: Vec<Token>,
+    signature: Option<Vec<u8>>,
 }
 
 impl Record {
@@ -89,9 +89,18 @@ impl TryFrom<String> for Record {
     }
 }
 
-#[allow(clippy::from_over_into)]
+#[allow(clippy::from_over_into, clippy::unwrap_used)]
 impl Into<String> for Record {
     fn into(self) -> String {
+        let str_tokens: Vec<String> = self
+            .tokens
+            .iter()
+            .map(|t| {
+                let s: String = String::try_from(t.clone()).unwrap();
+                s
+            })
+            .collect();
+        let joined_tokens = str_tokens.join(",");
         let block_entry_type_id: u8 = self.block_entry_type_id.into();
         let signature = match &self.signature {
             Some(s) => general_purpose::STANDARD.encode(s.as_slice()).to_string(),
@@ -99,12 +108,13 @@ impl Into<String> for Record {
         };
 
         format!(
-            "{};{};{};{};{};{}",
+            "{};{};{};{};{};{};{}",
             block_entry_type_id,
             self.record_id.as_hyphenated(),
             general_purpose::STANDARD.encode(self.poster_pk),
             self.key,
             general_purpose::STANDARD.encode(self.value),
+            joined_tokens,
             signature,
         )
     }

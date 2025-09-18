@@ -18,7 +18,8 @@ mod tests {
         let some_token = "0".repeat(64);
         let sender = Wallet::new().get_pub_key();
         let receiver = Wallet::new().get_pub_key();
-        let test_transaction = Transaction::new(sender, receiver, vec![some_token]);
+        let test_transaction =
+            Transaction::new(sender, receiver, vec![some_token.try_into().unwrap()]);
 
         let string: String = test_transaction.clone().into();
 
@@ -33,24 +34,16 @@ mod tests {
         assert!(Uuid::parse_str(&fields[1]).is_ok());
         assert_eq!(fields[2].len(), 88);
         assert_eq!(fields[3].len(), 88);
-        assert_eq!(
-            fields[4],
-            "0000000000000000000000000000000000000000000000000000000000000000"
-        );
-        println!(
-            "{} - {}",
-            fields[5].parse::<u64>().unwrap(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        );
         assert!(
-            fields[5].parse::<u64>().unwrap()
+            fields[4].parse::<u64>().unwrap()
                 < SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
                     .as_secs()
+        );
+        assert_eq!(
+            fields[5],
+            "0000000000000000000000000000000000000000000000000000000000000000"
         );
         assert_eq!(fields[6], "");
         let retrieved_transaction = Transaction::try_from(string).unwrap();
@@ -64,7 +57,8 @@ mod tests {
         let sender_wallet = Wallet::new();
         let sender = sender_wallet.get_pub_key();
         let receiver = Wallet::new().get_pub_key();
-        let test_transaction = Transaction::new(sender, receiver, vec![some_token]);
+        let test_transaction =
+            Transaction::new(sender, receiver, vec![some_token.try_into().unwrap()]);
         let same_transaction = test_transaction.clone();
         let test_transaction = sender_wallet.sign(test_transaction);
         assert_ne!(test_transaction, same_transaction);

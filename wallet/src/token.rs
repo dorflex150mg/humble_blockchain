@@ -8,7 +8,7 @@ pub enum TokenConversionError {
     #[error("Token Strings must have ascii encoding")]
     InvalidStringEncoding,
     #[error("Token Strings must have exactly size {}", TOKEN_SIZE)]
-    WrongSizedToken,
+    WrongSizedToken(usize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,7 +36,7 @@ impl TryFrom<String> for Token {
             return Err(TokenConversionError::InvalidStringEncoding);
         }
         if value.len() != TOKEN_SIZE {
-            return Err(TokenConversionError::WrongSizedToken);
+            return Err(TokenConversionError::WrongSizedToken(value.len()));
         }
         let bytes = value.as_bytes();
         let mut array: [u8; TOKEN_SIZE] = [0; TOKEN_SIZE];
