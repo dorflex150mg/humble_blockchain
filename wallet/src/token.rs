@@ -1,20 +1,28 @@
 use std::ops::Deref;
 use thiserror::Error;
 
+/// Default [Token] size in bytes.
 pub const TOKEN_SIZE: usize = 64;
 
 #[derive(Debug, Error)]
+
+/// Error type for [Token] to String conversion.
 pub enum TokenConversionError {
     #[error("Token Strings must have ascii encoding")]
+    /// Failed to String encode from utf8.
     InvalidStringEncoding,
     #[error("Token Strings must have exactly size {}", TOKEN_SIZE)]
+    /// String size is not `[TOKEN_SIZE]`.
     WrongSizedToken(usize),
 }
 
+/// [Token] is a newtype representation of a tradeable token, expressed as an array of bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token([u8; TOKEN_SIZE]);
 
 impl Token {
+    /// Creates a new [Token] from a [u8] array of size `[TOKEN_SIZE]`.
+    #[must_use]
     pub fn new(array: [u8; TOKEN_SIZE]) -> Self {
         Token(array)
     }

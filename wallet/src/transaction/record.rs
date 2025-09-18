@@ -68,12 +68,12 @@ impl TryFrom<String> for Record {
             _ => general_purpose::STANDARD.decode(fields[6]).ok(),
         };
         let tokens: Vec<Token> = fields[5]
-            .split(",")
+            .split(',')
             .map(|t| {
                 let token: Result<Token, EntryDecodeError> = t
                     .to_string()
                     .try_into()
-                    .map_err(|e| EntryDecodeError::InvalidTokenError(e));
+                    .map_err(EntryDecodeError::InvalidTokenError);
                 token
             })
             .collect::<Result<_, _>>()?;
