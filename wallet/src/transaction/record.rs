@@ -1,8 +1,6 @@
 use crate::{
     token::Token,
-    transaction::block_entry_common::{
-        BlockEntry, BlockMemberId, ConcreteBlockEntry, EntryDecodeError,
-    },
+    transaction::block_entry_common::{BlockMemberId, ConcreteBlockEntry, EntryDecodeError},
 };
 use base64::{engine::general_purpose, Engine as _};
 use std::fmt::{Debug, Display};

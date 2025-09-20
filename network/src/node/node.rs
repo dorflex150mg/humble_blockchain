@@ -3,7 +3,7 @@ use crate::node::{
     neighbour::{Neighbour, Role},
     protocol,
     receiver::Receiver,
-    reply::{BlockEntryReply, Reply, ReplySign},
+    reply::{Reply, ReplySign},
     theme::Theme,
 };
 use chain::chain::Chain;
@@ -23,8 +23,8 @@ use tokio::sync::{
 };
 use tracing::{debug, info};
 use uuid::{self, Uuid};
+use wallet::transaction::block_entry_common::EntryDecodeError;
 use wallet::transaction::{block_entry_common::BlockEntry, transaction::Transaction};
-use wallet::transaction::{block_entry_common::EntryDecodeError, record::Record};
 #[allow(dead_code)]
 const DEFAULT_ADDRESS: &str = "127.0.0.1";
 
@@ -380,7 +380,6 @@ impl Node {
                 },
                 Err(_) => return Ok(()),
             };
-            let mut entry_opt: Option<BlockEntryReply> = None;
             {
                 let res = match gossip_reply.protocol {
                     protocol::GREET => {
