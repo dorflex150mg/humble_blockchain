@@ -9,6 +9,8 @@ use std::{
 };
 use tracing::debug;
 use uuid::Uuid;
+use wallet::block_chain::BlockChainBlock;
+use wallet::transaction::record::Record;
 
 /// The interval (in seconds) to check for increasing difficulty. Difficulty increases if mining a block takes more than this interval.
 const INTERVAL: u64 = 60;
@@ -260,6 +262,25 @@ impl Chain {
     #[must_use]
     pub fn get_blocks(&self) -> Vec<Block> {
         self.blocks.clone()
+    }
+
+    /// Searches for a key and returns the last record that contains it.
+    #[must_use]
+    pub fn search(&self, key: &str) -> Option<Vec<u8>> {
+        for block in &self.blocks {
+            if let Some(record_match) = block
+                .get_records()
+                .iter()
+                .rev()
+                .find(|r| r.get_key() == key)
+            {
+                if record_match.tombstone() {
+                    return None;
+                }
+                return Some(record_match.get_value());
+            }
+        }
+        None
     }
 }
 

@@ -246,7 +246,7 @@ impl BlockChainBlock for Block {
         &self.hash
     }
 
-    fn get_records(&self) -> Vec<wallet::transaction::record::Record> {
+    fn get_records(&self) -> Vec<Record> {
         get_block_entries!(self, Record)
     }
 

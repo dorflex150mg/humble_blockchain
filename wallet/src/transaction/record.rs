@@ -48,6 +48,25 @@ impl Record {
     pub fn get_sender_pk(&self) -> Vec<u8> {
         self.poster_pk.clone()
     }
+
+    /// Returns the record's unique key.
+    #[must_use]
+    pub fn get_key(&self) -> &str {
+        &self.key
+    }
+
+    /// Returns the `Record`'s content, stored in `value`.
+    #[must_use]
+    pub fn get_value(&self) -> Vec<u8> {
+        self.value.clone()
+    }
+
+    /// Returns the value of the tombstone, indicating that this
+    /// record has been deleted.
+    #[must_use]
+    pub fn tombstone(&self) -> bool {
+        self.tombstone
+    }
 }
 
 impl TryFrom<String> for Record {

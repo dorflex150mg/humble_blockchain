@@ -25,6 +25,7 @@ mod tests {
 
         let string: String = test_record.clone().into();
 
+        println!("{}", &string);
         let fields: Vec<&str> = string.split(";").collect();
 
         thread::sleep(Duration::from_secs(1));
