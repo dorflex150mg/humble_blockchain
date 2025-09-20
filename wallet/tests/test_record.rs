@@ -36,8 +36,9 @@ mod tests {
         assert!(Uuid::parse_str(fields[1]).is_ok());
         assert_eq!(fields[2].len(), 88);
         assert_eq!(fields[3], "some id");
-        assert_eq!(fields[5], "0".repeat(64));
-        assert_eq!(fields[6], "");
+        assert_eq!(fields[5], "false");
+        assert_eq!(fields[6], "0".repeat(64));
+        assert_eq!(fields[7], "");
         let retrieved_record = Record::try_from(string).unwrap();
 
         assert_eq!(retrieved_record, test_record);

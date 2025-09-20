@@ -7,7 +7,7 @@ use std::fmt::{Debug, Display};
 use uuid::Uuid;
 
 /// Number of fields in a Record.
-pub const N_RECORD_FIELDS: usize = 6;
+pub const N_RECORD_FIELDS: usize = 7;
 
 #[allow(clippy::struct_field_names)]
 /// A key value entry to be recorded in `[BlockChainBlock]`.
@@ -18,6 +18,7 @@ pub struct Record {
     poster_pk: Vec<u8>,
     key: String,
     value: Vec<u8>,
+    tombstone: bool,
     tokens: Vec<Token>,
     signature: Option<Vec<u8>>,
 }
@@ -36,6 +37,7 @@ impl Record {
             poster_pk: poster,
             key: key.into(),
             value,
+            tombstone: false,
             tokens,
             signature: None,
         }
@@ -63,11 +65,10 @@ impl TryFrom<String> for Record {
         if ident != BlockMemberId::Record {
             return Err(EntryDecodeError::WrongTypeError);
         }
-        let signature = match fields[6] {
-            "" => None,
-            _ => general_purpose::STANDARD.decode(fields[6]).ok(),
-        };
-        let tokens: Vec<Token> = fields[5]
+        let tombstone = fields[5]
+            .parse::<bool>()
+            .map_err(|_| EntryDecodeError::InvalidTypeError)?;
+        let tokens: Vec<Token> = fields[6]
             .split(',')
             .map(|t| {
                 let token: Result<Token, EntryDecodeError> = t
@@ -77,12 +78,17 @@ impl TryFrom<String> for Record {
                 token
             })
             .collect::<Result<_, _>>()?;
+        let signature = match fields[7] {
+            "" => None,
+            _ => general_purpose::STANDARD.decode(fields[7]).ok(),
+        };
         Ok(Record {
             block_entry_type_id: ident,
             record_id: Uuid::parse_str(fields[1]).map_err(|_| EntryDecodeError::InvalidIdError)?,
             poster_pk: general_purpose::STANDARD.decode(fields[2])?,
             key: fields[3].to_owned(),
             value: general_purpose::STANDARD.decode(fields[4])?,
+            tombstone,
             tokens,
             signature,
         })
@@ -100,7 +106,7 @@ impl Into<String> for Record {
                 s
             })
             .collect();
-        let joined_tokens = str_tokens.join(",");
+        let tokens = str_tokens.join(",");
         let block_entry_type_id: u8 = self.block_entry_type_id.into();
         let signature = match &self.signature {
             Some(s) => general_purpose::STANDARD.encode(s.as_slice()).to_string(),
@@ -108,13 +114,14 @@ impl Into<String> for Record {
         };
 
         format!(
-            "{};{};{};{};{};{};{}",
+            "{};{};{};{};{};{};{};{}",
             block_entry_type_id,
             self.record_id.as_hyphenated(),
             general_purpose::STANDARD.encode(self.poster_pk),
             self.key,
             general_purpose::STANDARD.encode(self.value),
-            joined_tokens,
+            self.tombstone,
+            tokens,
             signature,
         )
     }
