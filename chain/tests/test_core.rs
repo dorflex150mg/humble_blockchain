@@ -3,6 +3,7 @@ use chain::chain::Chain;
 use chain::miner::miner::ChainMeta;
 #[cfg(test)]
 use chain::miner::miner::Miner;
+use wallet::transaction::block_entry_common::BlockEntry;
 use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
@@ -53,7 +54,7 @@ pub fn test_core() {
     // Update miner1 with the latest chain metadata and mine a block with the transaction
     miner1.set_chain_meta(my_chain.clone());
 
-    miner1.push_transaction(signed_t1);
+    miner1.push_entry(signed_t1.clone_box());
 
     let res_new_mining_digest = miner1.mine(my_chain.get_last_block());
     assert!(res_new_mining_digest.is_ok());

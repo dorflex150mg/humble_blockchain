@@ -1,6 +1,6 @@
 use crate::block_chain::{BlockChain, BlockChainBlock};
 use crate::token::{Token, TOKEN_SIZE};
-use crate::transaction::block_entry_common::Sign;
+use crate::transaction::block_entry_common::BlockEntry;
 use crate::transaction::transaction::Transaction;
 
 use thiserror::Error;
@@ -120,7 +120,7 @@ impl Wallet {
 
     /// Signs a `[Sign]` object and returns the same value.
     #[allow(clippy::unwrap_used)]
-    pub fn sign<T: Sign>(&self, mut entry: T) -> T {
+    pub fn sign<T: BlockEntry>(&self, mut entry: T) -> T {
         let vec = entry.get_payload();
         let bytes = &vec;
         entry.set_signature(
@@ -134,7 +134,7 @@ impl Wallet {
     }
 
     /// Verifies the signature in a `[Sign]` object.
-    pub fn verify<T: Sign>(
+    pub fn verify<T: BlockEntry>(
         &self,
         entry: &T,
         pub_key: Option<Vec<u8>>,
@@ -192,13 +192,13 @@ impl Wallet {
             let transactions = block.get_transactions();
             for transaction in transactions {
                 let pk = transaction.get_sender_pk();
-                if let Err(e) = self.verify(&transaction, Some(pk)) {
-                    return Err(ChainVerificationError::SignatureError(e));
-                }
-                if let Err(e) = Self::check_transaction_tokens(&transaction, blocks_copy.as_slice())
-                {
-                    return Err(ChainVerificationError::TransactionErr(e));
-                }
+                self.verify(&transaction, Some(pk))
+                    .map_err(ChainVerificationError::SignatureError)?;
+                Self::check_transaction_tokens(
+                    &(Box::new(transaction) as Box<dyn BlockEntry>),
+                    blocks_copy.as_slice(),
+                )
+                .map_err(ChainVerificationError::TransactionErr)?;
             }
             // Step 4: Verify that this block's records signatures are correct.
             let records = block.get_records();
@@ -217,7 +217,7 @@ impl Wallet {
         &mut self,
         receiver: Vec<u8>,
         amount: usize,
-    ) -> Result<impl Sign, TransactionErr> {
+    ) -> Result<impl BlockEntry, TransactionErr> {
         if amount == 0 {
             return Err(TransactionErr::ZeroAmount);
         }
@@ -238,12 +238,12 @@ impl Wallet {
     ///
     /// # Returns
     /// * `Result<Transaction, InvalidTransactionErr>` - Returns the validated transaction if successful, or an error if validation fails.
-    #[allow(clippy::unwrap_used)]
+    #[allow(clippy::unwrap_used, clippy::borrowed_box)]
     pub fn check_transaction_tokens(
-        transaction: &Transaction,
+        transaction: &Box<dyn BlockEntry>,
         blocks: &[Box<dyn BlockChainBlock>],
     ) -> Result<(), TransactionErr> {
-        let tokens: &Vec<Token> = &transaction.tokens;
+        let tokens: &Vec<Token> = &transaction.get_tokens();
         for token in tokens {
             //verify each coin is valid:
             let mut coin_found: bool = false;

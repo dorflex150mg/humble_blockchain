@@ -1,6 +1,8 @@
 use crate::{
     token::Token,
-    transaction::block_entry_common::{BlockMemberId, EntryDecodeError, Sign},
+    transaction::block_entry_common::{
+        BlockEntry, BlockMemberId, ConcreteBlockEntry, EntryDecodeError,
+    },
 };
 use base64::{engine::general_purpose, Engine as _};
 use std::fmt::{Debug, Display};
@@ -126,7 +128,7 @@ impl Display for Record {
     }
 }
 
-impl Sign for Record {
+impl ConcreteBlockEntry for Record {
     fn get_payload(&self) -> Vec<u8> {
         [
             self.record_id.as_bytes().as_slice(),
@@ -143,5 +145,13 @@ impl Sign for Record {
 
     fn get_signature(&self) -> Option<Vec<u8>> {
         self.signature.clone()
+    }
+
+    fn get_tokens(&self) -> Vec<Token> {
+        self.tokens.clone()
+    }
+
+    fn get_sender_pk(&self) -> Vec<u8> {
+        self.poster_pk.clone()
     }
 }

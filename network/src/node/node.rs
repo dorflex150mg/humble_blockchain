@@ -3,7 +3,7 @@ use crate::node::{
     neighbour::{Neighbour, Role},
     protocol,
     receiver::Receiver,
-    reply::Reply,
+    reply::{BlockEntryReply, Reply, ReplySign},
     theme::Theme,
 };
 use chain::chain::Chain;
@@ -23,8 +23,8 @@ use tokio::sync::{
 };
 use tracing::{debug, info};
 use uuid::{self, Uuid};
-use wallet::transaction::block_entry_common::EntryDecodeError;
-use wallet::transaction::transaction::Transaction;
+use wallet::transaction::{block_entry_common::BlockEntry, transaction::Transaction};
+use wallet::transaction::{block_entry_common::EntryDecodeError, record::Record};
 #[allow(dead_code)]
 const DEFAULT_ADDRESS: &str = "127.0.0.1";
 
@@ -380,7 +380,7 @@ impl Node {
                 },
                 Err(_) => return Ok(()),
             };
-            let mut outter_transaction: Option<Transaction> = None;
+            let mut entry_opt: Option<BlockEntryReply> = None;
             {
                 let res = match gossip_reply.protocol {
                     protocol::GREET => {
@@ -389,25 +389,20 @@ impl Node {
                     }
                     protocol::FAREWELL => self.remove_neighbour(gossip_reply.sender)?,
                     protocol::NEIGHBOUR => self.add_neighbour(gossip_reply.buffer)?,
-                    protocol::TRANSACTION => self.add_transaction(gossip_reply.buffer)?,
+                    protocol::TRANSACTION => self.add_block_entry(gossip_reply.buffer)?,
                     protocol::CHAIN => self.get_chain(gossip_reply.buffer)?,
                     protocol::POLLCHAIN => self.share_chain()?,
                     _ => None,
-                    // Ignore unrecognized protocol with no error
+                    // Ignore unrecognized protocol with no errors.
                 };
                 if let Some(mut ptr) = res {
                     if let Some(chain) = ptr.as_chain() {
                         self.check_remote_chain_and_broadcast(chain.clone(), sender);
-                    } else if let Some(transaction) = ptr.as_transaction() {
-                        if self.miner.is_some() {
-                            outter_transaction = Some(transaction.clone());
+                    } else if let Some(entry) = ptr.as_sign() {
+                        if let Some(miner) = self.miner.as_mut() {
+                            push_transaction(miner, entry.clone_box()).await;
                         }
                     }
-                }
-            }
-            if let Some(t) = outter_transaction {
-                if let Some(miner) = self.miner.as_mut() {
-                    push_transaction(miner, t.clone()).await;
                 }
             }
         }
@@ -527,7 +522,7 @@ impl Node {
     ///
     /// # Returns
     /// Optional reply containing transaction or gossip error
-    pub fn add_transaction(
+    pub fn add_block_entry(
         &self,
         mut buffer: Vec<u8>,
     ) -> Result<Option<Box<dyn Reply>>, GossipError> {
@@ -539,7 +534,7 @@ impl Node {
         let str_buffer = str::from_utf8(&buffer).map_err(|_| GossipError::InvalidReplyError)?;
         let transaction = Transaction::try_from(str_buffer.to_string())
             .map_err(|_| GossipError::InvalidReplyError)?;
-        Ok(Some(Box::new(transaction)))
+        Ok(Some(Box::new(ReplySign(Box::new(transaction)))))
     }
 
     // ------------------------------- // Chain Management // -------------------------------
@@ -660,14 +655,14 @@ async fn listen_to_transactions(
 ) {
     match receive_transaction(receiver).await {
         Ok(transaction) => {
-            println!("[{}] Transaction being received: {}", address, &transaction);
+            println!("[{address}] Transaction being received: {}", &transaction);
             match miner {
                 Some(m) => {
                     let mut miner_ref = m.clone();
                     if let Some(sender) = log_sender {
                         let _ = sender.send("Transaction Received".to_string()).await;
                     }
-                    push_transaction(&mut miner_ref, transaction).await;
+                    push_transaction(&mut miner_ref, Box::new(transaction)).await;
                 }
                 _ => submit_transaction(&transaction, &neighbours, &address),
             }
@@ -789,9 +784,9 @@ async fn try_mine(
 #[allow(clippy::unwrap_used)]
 async fn push_transaction(
     miner: &mut Arc<Mutex<Arc<sync::Mutex<Miner>>>>,
-    transaction: Transaction,
+    transaction: Box<dyn BlockEntry>,
 ) {
     let guard = miner.lock().await;
     let mut inner = guard.lock().unwrap();
-    inner.push_transaction(transaction);
+    inner.push_entry(transaction);
 }

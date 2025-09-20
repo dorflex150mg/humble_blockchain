@@ -3,6 +3,7 @@ use crate::chain::Chain;
 
 use wallet::block_chain::BlockChainBlock;
 use wallet::token::Token;
+use wallet::transaction::block_entry_common::BlockEntry;
 use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
@@ -93,7 +94,7 @@ pub struct Miner {
     /// The `[Miner]`'s `[Wallet]`. Newly mined `[Token]`s are added here.
     pub wallet: Wallet,
     /// `[Transaction]` buffer to insert at a `[Block]`.
-    pub transactions: Vec<Transaction>,
+    pub entries: Vec<Box<dyn BlockEntry>>,
     /// `[Chain]` to which this miner submits newly mined `[Block]`s.
     pub chain: Chain,
 }
@@ -114,7 +115,7 @@ impl Miner {
             id,
             name,
             wallet: Wallet::new(),
-            transactions: vec![],
+            entries: vec![],
             chain,
         }
     }
@@ -137,7 +138,7 @@ impl Miner {
     /// # Returns
     /// * `Result<MiningDigest, MiningError>` - The result of the mining operation.
     pub fn mine(&mut self, mut block: Block) -> Result<MiningDigest, MiningError> {
-        self.transactions = self.check_transactions()?;
+        self.filter_entries()?;
         loop {
             let mut rng = rand::thread_rng();
             block.nonce = rng.gen_range(0..=u64::MAX);
@@ -150,7 +151,8 @@ impl Miner {
                     vec![token],
                 );
                 let signed_prize = self.wallet.sign(prize_transaction);
-                self.transactions.push(signed_prize); //TODO: this should be the 1st tx
+                self.entries
+                    .push(Box::new(signed_prize) as Box<dyn BlockEntry>); //TODO: this should be the 1st tx
                 return Ok(MiningDigest::new(
                     self.create_new_block(str_digest, block.hash.clone()),
                     block.nonce,
@@ -164,24 +166,18 @@ impl Miner {
         self.chain = chain;
     }
 
-    /// Sets the transactions for the miner.
-    #[allow(dead_code)]
-    pub fn set_transactions(&mut self, new_transactions: Vec<Transaction>) {
-        self.transactions = new_transactions;
-    }
-
     /// Adds a new transaction to the miner's list of transactions.
-    pub fn push_transaction(&mut self, transaction: Transaction) {
-        self.transactions.push(transaction);
+    pub fn push_entry(&mut self, transaction: Box<dyn BlockEntry>) {
+        self.entries.push(transaction);
     }
 
-    /// Checks the validity of the miner's transactions.
+    /// Checks the validity of the miner's entries and removes the invalid ones.
     ///
     /// # Returns
-    /// * `Result<Vec<Transaction>, MiningError>` - Transaction when the transaction is correct and `[MiningError]` when it is not.
-    pub fn check_transactions(&self) -> Result<Vec<Transaction>, MiningError> {
-        let filtered: Vec<Transaction> = self
-            .transactions
+    /// * `Result<(), MiningError>` - `[MiningError]` when the entry is not correct.
+    pub fn filter_entries(&mut self) -> Result<(), MiningError> {
+        let filtered: Vec<Box<dyn BlockEntry>> = self
+            .entries
             .iter()
             .filter_map(|transaction| {
                 let boxed_blocks: Vec<Box<dyn BlockChainBlock>> = self
@@ -191,11 +187,12 @@ impl Miner {
                     .map(|b| Box::new(b.clone()) as Box<dyn BlockChainBlock>)
                     .collect();
                 Wallet::check_transaction_tokens(transaction, boxed_blocks.as_slice())
-                    .and(Ok(transaction.clone()))
+                    .and(Ok(transaction.clone_box()))
                     .ok()
             })
             .collect();
-        Ok(filtered)
+        self.entries = filtered;
+        Ok(())
     }
 
     /// Creates a new block and adds it to the blockchain.
@@ -208,13 +205,13 @@ impl Miner {
     /// * `Block` - The newly created block.
     pub fn create_new_block(&mut self, hash: Hash, previous_hash: Hash) -> Block {
         let index: usize = self.chain.get_len() + 1;
-        let cap: usize = cmp::min(self.transactions.len(), block::MAX_TRANSACTIONS);
-        let capped_transactions: Vec<Transaction> = self.transactions.drain(0..cap).collect();
-        let encoded_transactions: Vec<String> = capped_transactions
+        let cap: usize = cmp::min(self.entries.len(), block::MAX_TRANSACTIONS);
+        let capped_entries: Vec<Box<dyn BlockEntry>> = self.entries.drain(0..cap).collect();
+        let encoded_entries: Vec<String> = capped_entries
             .iter()
-            .map(|transaction| transaction.clone().into())
+            .map(|entry| entry.clone_box().to_string())
             .collect();
-        let data: String = encoded_transactions.join("");
+        let data: String = encoded_entries.join("");
         self.wallet.add_coin(hash.clone().into());
 
         Block::new(index, previous_hash, data, Some(hash))

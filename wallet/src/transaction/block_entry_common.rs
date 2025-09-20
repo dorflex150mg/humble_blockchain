@@ -2,28 +2,28 @@ use std::fmt::{Debug, Display};
 use std::num::ParseIntError;
 use thiserror::Error;
 
-use crate::token::TokenConversionError;
+use crate::token::{Token, TokenConversionError};
 
 /// A `[u8]` that represents a `[Transaction]` block entry.
 pub const TRANSACTION_BLOCK_MEMBER_IDENTIFIER: u8 = 0;
 /// A `[u8]` that represents a `[Record]` block entry.
 pub const RECORD_BLOCK_MEMBER_IDENTIFIER: u8 = 1;
 
-/// Error type for `[Sign]` trait object id conversion from [u8].
+/// Error type for `[BlockEntry]` trait object id conversion from [u8].
 #[derive(Debug, Error)]
 pub enum BlockIdError {
     #[error("Tried to convert invalid id {} to a BlockMemberId.", {0})]
-    /// The id does not correspond to a valid `[Sign]` trait object id.
+    /// The id does not correspond to a valid `[BlockEntry]` trait object id.
     InvalidIdError(u8),
 }
 
-/// `[BlockMemberId]` identifies a `[Sign]` trait object as `[Transaction]` or `[Record]`.
+/// `[BlockMemberId]` identifies a `[BlockEntry]` trait object as `[Transaction]` or `[Record]`.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum BlockMemberId {
     #[default]
-    /// Identifies a `[Sign]` trait object as `[Transaction]`.
+    /// Identifies a `[BlockEntry]` trait object as `[Transaction]`.
     Transaction,
-    /// Identifies a `[Sign]` trait object as `[Record]`.
+    /// Identifies a `[BlockEntry]` trait object as `[Record]`.
     Record,
 }
 
@@ -48,7 +48,7 @@ impl Into<u8> for BlockMemberId {
     }
 }
 
-/// Error type for Conversion from `String` to `[Sign]` trait objects.  
+/// Error type for Conversion from `String` to `[BlockEntry]` trait objects.  
 #[derive(Error, Debug, derive_more::From, derive_more::Display)]
 pub enum EntryDecodeError {
     /// Base64 Decode Error.
@@ -59,22 +59,76 @@ pub enum EntryDecodeError {
     InvalidTokenError(TokenConversionError),
     /// Invalid Block Id Error.
     InvalidIdError,
-    /// Attempted to convert to the wrong `[Sign]` trait object.
+    /// Attempted to convert to the wrong `[BlockEntry]` trait object.
     WrongTypeError,
-    /// Attempted to convert to a non-existant `[Sign]` trait object.
+    /// Attempted to convert to a non-existant `[BlockEntry]` trait object.
     InvalidTypeError,
-    /// String field count does not match this `[Sign]` trait object.
+    /// String field count does not match this `[BlockEntry]` trait object.
     WrongFieldCountError,
 }
 
-/// `[Sign]` represents objects that can be signed by a `[Wallet]`.
+/// `[BlockEntry]` represents objects that can be signed by a `[Wallet]`.
 /// It is used to distinguish objects that can be part of Block data.
-pub trait Sign: Debug + Display {
+pub trait BlockEntry: Debug + Display + Send {
     /// Returns a payload containg the data to be signed.
     fn get_payload(&self) -> Vec<u8>;
-    /// Adds the signature from the `[Wallet]` into the `[Sign]` trait object.
+    /// Adds the signature from the `[Wallet]` into the `[BlockEntry]` trait object.
     fn set_signature(&mut self, signature: Vec<u8>);
-    /// Returns Some with the signature a `[Wallet]` has set to a `[Sign]` if it has one.
+    /// Returns Some with the signature a `[Wallet]` has set to a `[BlockEntry]` if it has one.
     /// Otherwise returns None.
     fn get_signature(&self) -> Option<Vec<u8>>;
+
+    /// Returns a vector with the `[Token]`s.
+    fn get_tokens(&self) -> Vec<Token>;
+
+    /// Returns the sender `[Wallet]`s public key.
+    fn get_sender_pk(&self) -> Vec<u8>;
+
+    /// Creates a boxed clone of the concrete type.
+    fn clone_box(&self) -> Box<dyn BlockEntry>;
+
+    /// Returns the String representation.
+    fn to_string(&self) -> String;
+}
+
+impl<T> BlockEntry for T
+where
+    T: 'static + Clone + ConcreteBlockEntry + Debug + Display + ToString + Send,
+{
+    fn clone_box(&self) -> Box<dyn BlockEntry> {
+        Box::new(self.clone())
+    }
+    fn get_payload(&self) -> Vec<u8> {
+        self.get_payload()
+    }
+    fn get_signature(&self) -> Option<Vec<u8>> {
+        self.get_signature()
+    }
+    fn set_signature(&mut self, signature: Vec<u8>) {
+        self.set_signature(signature);
+    }
+    fn get_tokens(&self) -> Vec<Token> {
+        self.get_tokens()
+    }
+    fn get_sender_pk(&self) -> Vec<u8> {
+        self.get_sender_pk()
+    }
+    fn to_string(&self) -> String {
+        self.to_string()
+    }
+}
+
+/// Helper trait for concrete `[BlockEntry]` implementing types.
+pub trait ConcreteBlockEntry {
+    /// Returns a payload containg the data to be signed.
+    fn get_payload(&self) -> Vec<u8>;
+    /// Adds the signature from the `[Wallet]` into the `[BlockEntry]` trait object.
+    fn get_signature(&self) -> Option<Vec<u8>>;
+    /// Returns Some with the signature a `[Wallet]` has set to a `[BlockEntry]` if it has one.
+    /// Otherwise returns None.
+    fn set_signature(&mut self, signature: Vec<u8>);
+    /// Returns a vector with the `[Token]`s.
+    fn get_tokens(&self) -> Vec<Token>;
+    /// Returns the sender `[Wallet]`s public key.
+    fn get_sender_pk(&self) -> Vec<u8>;
 }

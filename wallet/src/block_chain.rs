@@ -1,3 +1,4 @@
+use crate::transaction::block_entry_common::BlockEntry;
 use crate::transaction::record::Record;
 use crate::transaction::transaction::Transaction;
 

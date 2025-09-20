@@ -1,6 +1,8 @@
 use crate::{
     token::Token,
-    transaction::block_entry_common::{BlockMemberId, EntryDecodeError, Sign},
+    transaction::block_entry_common::{
+        BlockEntry, BlockMemberId, ConcreteBlockEntry, EntryDecodeError,
+    },
 };
 use base64::{engine::general_purpose, Engine as _};
 use std::{
@@ -47,12 +49,6 @@ impl Transaction {
             tokens: coins,
             signature: None,
         }
-    }
-
-    /// Returns the sender's public key.
-    #[must_use]
-    pub fn get_sender_pk(&self) -> Vec<u8> {
-        self.sender_pk.clone()
     }
 }
 
@@ -155,7 +151,7 @@ impl fmt::Display for Transaction {
     }
 }
 
-impl Sign for Transaction {
+impl ConcreteBlockEntry for Transaction {
     #[allow(clippy::unwrap_used)]
     fn get_payload(&self) -> Vec<u8> {
         let str_tokens: Vec<String> = self
@@ -181,5 +177,13 @@ impl Sign for Transaction {
 
     fn get_signature(&self) -> Option<Vec<u8>> {
         self.signature.clone()
+    }
+
+    fn get_tokens(&self) -> Vec<Token> {
+        self.tokens.clone()
+    }
+
+    fn get_sender_pk(&self) -> Vec<u8> {
+        self.sender_pk.clone()
     }
 }
