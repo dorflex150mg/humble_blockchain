@@ -148,7 +148,8 @@ impl Into<String> for Record {
 
 impl Display for Record {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.record_id)
+        let str_rec: String = self.clone().into();
+        write!(f, "{str_rec}")
     }
 }
 

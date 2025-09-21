@@ -129,23 +129,8 @@ impl Into<String> for Transaction {
 impl fmt::Display for Transaction {
     #[allow(clippy::unwrap_used)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let str_tokens: Vec<String> = self
-            .tokens
-            .iter()
-            .map(|t| {
-                let s: String = String::try_from(t.clone()).unwrap();
-                s
-            })
-            .collect();
-
-        write!(
-            f,
-            "timestamp: {}, sender: {:?}, receiver: {:?}, coins: {}",
-            self.timestamp,
-            self.sender_pk,
-            self.receiver_pk,
-            str_tokens.join(", "),
-        )
+        let str_tx: String = self.clone().into();
+        write!(f, "{str_tx}",)
     }
 }
 

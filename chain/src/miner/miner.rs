@@ -143,7 +143,7 @@ impl Miner {
             let mut rng = rand::thread_rng();
             block.nonce = rng.gen_range(0..=u64::MAX);
             let str_digest: Hash = block.calculate_hash();
-            if str_digest.starts_with(&"0".repeat(self.chain.difficulty)) {
+            if str_digest.starts_with(&"0".repeat(self.chain.difficulty as usize)) {
                 let token: Token = str_digest.clone().into();
                 let prize_transaction = Transaction::new(
                     ZERO_WALLET_PK.to_vec(),
@@ -167,8 +167,8 @@ impl Miner {
     }
 
     /// Adds a new transaction to the miner's list of transactions.
-    pub fn push_entry(&mut self, transaction: Box<dyn BlockEntry>) {
-        self.entries.push(transaction);
+    pub fn push_entry(&mut self, entry: Box<dyn BlockEntry>) {
+        self.entries.push(entry);
     }
 
     /// Checks the validity of the miner's entries and removes the invalid ones.

@@ -10,7 +10,6 @@ use std::{
 use tracing::debug;
 use uuid::Uuid;
 use wallet::block_chain::BlockChainBlock;
-use wallet::transaction::record::Record;
 
 /// The interval (in seconds) to check for increasing difficulty. Difficulty increases if mining a block takes more than this interval.
 const INTERVAL: u64 = 60;
@@ -21,8 +20,9 @@ pub struct Chain {
     id: Uuid,
     blocks: Vec<Block>,
     len: usize,
-    /// Current mining difficulty (number of leading zeros required)
-    pub difficulty: usize,
+    /// Current mining difficulty (number of leading zeros required). `difficulty` should  never surpass 256, hence
+    /// the type.
+    pub difficulty: u8,
 }
 
 impl PartialEq for Chain {
@@ -67,7 +67,7 @@ pub enum BlockCheckError {
     /// Error for when the block's index doesn't match the expected chain index.
     WrongIndex(usize, usize),
     /// Error for when the block's hash does not satisfy the current difficulty level.
-    InvalidPrefix(usize),
+    InvalidPrefix(u8),
     /// Error for when the previous block's hash is not found in the chain.
     NotInChain {
         /// Expected previous hash.
@@ -169,7 +169,7 @@ impl Chain {
         if block_index != self.len + 1 {
             return Err(BlockCheckError::WrongIndex(self.len + 1, block_index));
         }
-        if !digest_str.starts_with(&"0".repeat(self.difficulty)) {
+        if !digest_str.starts_with(&"0".repeat(self.difficulty as usize)) {
             return Err(BlockCheckError::InvalidPrefix(self.difficulty));
         }
         let last_chain_hash = self.get_last_block().hash.clone();
