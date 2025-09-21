@@ -15,6 +15,7 @@ pub mod tests {
 
     #[test]
     fn test_search() {
+        let value = "a long and long and long and long long time.";
         let mut chain = Chain::new();
         let mut miner1 = Miner::new(1, String::from("Miner 1"), chain.clone());
         let last_block = chain.get_last_block();
@@ -25,9 +26,7 @@ pub mod tests {
         let r1 = Record::new(
             miner1.wallet.get_pub_key(),
             "my_key",
-            "a long and long and long and long long time."
-                .as_bytes()
-                .to_vec(),
+            value.as_bytes().to_vec(),
             vec![one_token],
         );
         //let signed_t1 = miner1.wallet.sign(r1.clone());
@@ -41,6 +40,7 @@ pub mod tests {
         println!("{}", last_block);
         let mut res = last_block.get_records();
         println!("{:?}", &res);
-        assert!(res.pop().unwrap() == r1);
+        assert_eq!(res.pop().unwrap(), r1);
+        assert_eq!(chain.search("my_key").unwrap(), value.as_bytes().to_vec());
     }
 }

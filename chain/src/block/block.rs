@@ -100,7 +100,6 @@ macro_rules! get_block_entries {
         let mut iter = $block.data.chars().peekable();
         while iter.peek().is_some() {
             if let Some(next_string_entry) = Block::get_next_string_entry(&mut iter) {
-                println!("Trying from {}", &next_string_entry);
                 if let Ok(block_entry) = <$type_name>::try_from(next_string_entry) {
                     block_entries.push(block_entry);
                 }
@@ -167,21 +166,16 @@ impl Block {
     fn get_next_string_entry(iter: &mut Peekable<Chars>) -> Option<String> {
         let mut string_entry: String = String::new();
         let mut current_char: char = iter.next()?;
-        println!("get next entry -- first char: {}", &current_char);
         string_entry.push(current_char);
         let mut separator_count: usize = 0;
         let item_field_count: usize = match current_char.to_digit(10) {
             Some(member_type) => match member_type as u8 {
                 TRANSACTION_BLOCK_MEMBER_IDENTIFIER => N_TRANSACTION_FIELDS,
                 RECORD_BLOCK_MEMBER_IDENTIFIER => N_RECORD_FIELDS,
-                f => {
-                    println!("got: {f}");
-                    return None;
-                }
+                _ => return None,
             },
             None => return None,
         };
-        println!("get next entry -- field count: {}", &item_field_count);
         while separator_count != item_field_count {
             current_char = iter.next()?;
             if current_char == FIELD_END {
