@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{BufReader, BufWriter, Read, Seek, Write},
 };
 
 use crate::engine::{Engine, StoreError};
@@ -9,8 +9,7 @@ const FILENAME: &str = "chain.dat";
 
 /// Engine type that stores data in a file called `chain.dat` at the current directory.
 pub struct FileEngine {
-    writer: BufWriter<File>,
-    reader: BufReader<File>,
+    file: File,
 }
 
 impl Default for FileEngine {
@@ -25,34 +24,37 @@ impl FileEngine {
     pub fn new() -> Self {
         let mut path = std::env::current_dir().unwrap();
         path.push(FILENAME);
+        println!("{}", path.display());
 
-        let write_file = File::options()
-            .create(true)
+        let file = File::options()
+            .read(true)
             .write(true)
+            .create(true)
+            .truncate(false)
             .open(path.clone())
             .unwrap();
 
-        let read_file = File::options().create(true).read(true).open(path).unwrap();
-
-        FileEngine {
-            writer: BufWriter::new(write_file),
-            reader: BufReader::new(read_file),
-        }
+        FileEngine { file }
     }
 }
 
 impl Engine for FileEngine {
     fn store(&mut self, payload: &str) -> Result<(), StoreError> {
-        self.writer
+        let _ = self.file.set_len(0);
+        let res = self
+            .file
             .write(payload.as_bytes())
             .map_err(|_| StoreError::StorageError)
-            .and(Ok(()))
+            .and(Ok(()));
+        let _ = self.file.flush();
+        res
     }
 
     fn load(&mut self) -> Result<String, StoreError> {
+        let _ = self.file.seek(std::io::SeekFrom::Start(0));
         let mut buffer: Vec<u8> = vec![];
         let n_bytes = self
-            .reader
+            .file
             .read_to_end(&mut buffer)
             .map_err(|_| StoreError::LoadError)?;
         if n_bytes == 0 {
