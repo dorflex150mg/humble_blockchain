@@ -15,7 +15,7 @@ use wallet::block_chain::BlockChainBlock;
 const INTERVAL: u64 = 60;
 
 /// Struct representing a blockchain with a vector of blocks, length, and mining difficulty.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Chain {
     id: Uuid,
     blocks: Vec<Block>,
@@ -112,6 +112,7 @@ impl Chain {
     ///
     /// # Returns
     /// A new instance of `Chain`.
+    #[allow(clippy::unwrap_used)]
     #[must_use]
     pub fn new() -> Self {
         let genesis_block = Block::new(0, Hash::default(), String::new(), Some(Hash::default()));
