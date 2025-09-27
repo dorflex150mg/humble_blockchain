@@ -85,6 +85,8 @@ pub enum BlockCheckError {
         /// Actual block hash.
         got: String,
     },
+    /// Error for when the block cannot be serialized.
+    SerializationFailed,
 }
 
 impl fmt::Display for BlockCheckError {
@@ -106,6 +108,7 @@ impl fmt::Display for BlockCheckError {
             BlockCheckError::WrongHash { expected, got } => {
                 write!(f, "Wrong hash. Expected: {expected}, but got: {got}")
             }
+            BlockCheckError::SerializationFailed => write!(f, "Failed to serialize block."),
         }
     }
 }
@@ -217,7 +220,7 @@ impl Chain {
 
     /// Updates the index.
     #[allow(clippy::unwrap_used)]
-    fn update_index(&mut self, offsets: &Vec<RecordOffset>) {
+    fn update_index(&mut self, offsets: &[RecordOffset]) {
         let modified_keys: Vec<String> = offsets.iter().map(RecordOffset::get_key).collect();
         let new_index: HashMap<String, usize> = self
             .index
@@ -267,9 +270,13 @@ impl Chain {
             self.check_block_data(data, previous_hash, block_hash, block_index)?;
             self.check_difficulty(block.timestamp);
         }
+        self.update_index(&mining_digest.get_record_offsets());
+        self.last_block_offset = serde_json::to_string(&block)
+            .map_err(|_| BlockCheckError::SerializationFailed)?
+            .len();
         self.blocks.push(block);
         self.len += 1;
-        self.update_index(&mining_digest.get_record_offsets());
+
         Ok(())
     }
 

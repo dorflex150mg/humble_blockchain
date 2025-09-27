@@ -21,4 +21,5 @@
 #[warn(missing_docs)]
 mod engine;
 mod file_engine;
+/// Module that contains the `[Store]` trait.
 pub mod store;

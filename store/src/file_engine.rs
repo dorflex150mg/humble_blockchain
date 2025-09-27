@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Read, Seek, Write},
+    io::{Read, Seek, Write},
 };
 
 use crate::engine::{Engine, StoreError};

@@ -33,7 +33,7 @@ impl Store {
         self.engine.store(payload)
     }
 
-    /// Loads the contents kept on the underlying StoreEngine.
+    /// Loads the contents kept on the underlying `StoreEngine`.
     pub fn load(&mut self) -> Result<String, StoreError> {
         self.engine.load()
     }

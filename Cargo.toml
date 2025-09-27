@@ -4,5 +4,5 @@ members = [
     "wallet",
     "network",
     "app"
-]
+, "store"]
 resolver = "2"
