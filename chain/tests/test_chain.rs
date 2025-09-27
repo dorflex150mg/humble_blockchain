@@ -21,7 +21,7 @@ pub mod tests {
         let last_block = chain.get_last_block();
 
         let mining_digest = miner1.mine(last_block).unwrap();
-        let _ = chain.add_block(&mining_digest);
+        let _ = chain.add_block(mining_digest);
         let one_token = miner1.wallet.get_coins().pop().unwrap();
         let r1 = Record::new(
             miner1.wallet.get_pub_key(),
@@ -35,7 +35,7 @@ pub mod tests {
         miner1.set_chain_meta(chain.clone());
         miner1.push_entry(r1.clone_box());
         let mining_digest = miner1.mine(last_block).unwrap();
-        chain.add_block(&mining_digest).unwrap();
+        chain.add_block(mining_digest).unwrap();
         let last_block = chain.get_last_block();
         println!("{}", last_block);
         let mut res = last_block.get_records();

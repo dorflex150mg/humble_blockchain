@@ -1,6 +1,6 @@
 use crate::{
     token::Token,
-    transaction::block_entry_common::{BlockMemberId, ConcreteBlockEntry, EntryDecodeError},
+    transaction::block_entry_common::{BlockEntryId, ConcreteBlockEntry, EntryDecodeError},
 };
 use base64::{engine::general_purpose, Engine as _};
 use std::{
@@ -19,7 +19,7 @@ pub const N_TRANSACTION_FIELDS: usize = 7;
 /// transaction to be valid, the sender must add its signature to the `signature` field and a miner
 /// must submit it to a `[BlockChain]`.
 pub struct Transaction {
-    block_entry_type_id: BlockMemberId,
+    block_entry_type_id: BlockEntryId,
     transaction_id: Uuid,
     sender_pk: Vec<u8>,
     /// The public key of the receiver's `[Wallet]`.
@@ -39,7 +39,7 @@ impl Transaction {
             .unwrap_or_default()
             .as_secs();
         Transaction {
-            block_entry_type_id: BlockMemberId::Transaction,
+            block_entry_type_id: BlockEntryId::Transaction,
             transaction_id: Uuid::new_v4(),
             sender_pk: sender,
             receiver_pk: receiver,
@@ -57,12 +57,12 @@ impl TryFrom<String> for Transaction {
         if fields.len() < N_TRANSACTION_FIELDS {
             return Err(EntryDecodeError::WrongFieldCountError);
         }
-        let ident: BlockMemberId = fields[0]
+        let ident: BlockEntryId = fields[0]
             .parse::<u8>()
             .map_err(|_| EntryDecodeError::InvalidTypeError)?
             .try_into()
             .map_err(|_| EntryDecodeError::InvalidTypeError)?;
-        if ident != BlockMemberId::Transaction {
+        if ident != BlockEntryId::Transaction {
             return Err(EntryDecodeError::WrongTypeError);
         }
         let signature = match fields[6] {
@@ -168,5 +168,13 @@ impl ConcreteBlockEntry for Transaction {
 
     fn get_sender_pk(&self) -> Vec<u8> {
         self.sender_pk.clone()
+    }
+
+    fn get_entry_type(&self) -> BlockEntryId {
+        BlockEntryId::Transaction
+    }
+
+    fn get_key(&self) -> String {
+        self.transaction_id.hyphenated().to_string()
     }
 }

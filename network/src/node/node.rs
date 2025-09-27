@@ -603,7 +603,7 @@ fn mine(miner: &Arc<sync::Mutex<Miner>>, mut chain: Chain) -> Chain {
         miner.lock().unwrap().set_chain_meta(chain.clone());
         if let Ok(mining_digest) = miner.lock().unwrap().mine(chain.get_last_block()) {
             info!("Mined block: {}", mining_digest.get_block());
-            let _ = chain.add_block(&mining_digest);
+            let _ = chain.add_block(mining_digest);
             mining_in_progress = false;
         }
     }

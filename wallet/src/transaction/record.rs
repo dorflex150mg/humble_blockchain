@@ -1,6 +1,6 @@
 use crate::{
     token::Token,
-    transaction::block_entry_common::{BlockMemberId, ConcreteBlockEntry, EntryDecodeError},
+    transaction::block_entry_common::{BlockEntryId, ConcreteBlockEntry, EntryDecodeError},
 };
 use base64::{engine::general_purpose, Engine as _};
 use std::fmt::{Debug, Display};
@@ -13,7 +13,7 @@ pub const N_RECORD_FIELDS: usize = 7;
 /// A key value entry to be recorded in `[BlockChainBlock]`.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Record {
-    block_entry_type_id: BlockMemberId,
+    block_entry_type_id: BlockEntryId,
     record_id: Uuid,
     poster_pk: Vec<u8>,
     key: String,
@@ -32,7 +32,7 @@ impl Record {
         tokens: Vec<Token>,
     ) -> Self {
         Record {
-            block_entry_type_id: BlockMemberId::Record,
+            block_entry_type_id: BlockEntryId::Record,
             record_id: Uuid::new_v4(),
             poster_pk: poster,
             key: key.into(),
@@ -76,12 +76,12 @@ impl TryFrom<String> for Record {
         if fields.len() < N_RECORD_FIELDS {
             return Err(EntryDecodeError::WrongFieldCountError);
         }
-        let ident: BlockMemberId = fields[0]
+        let ident: BlockEntryId = fields[0]
             .parse::<u8>()
             .map_err(|_| EntryDecodeError::InvalidTypeError)?
             .try_into()
             .map_err(|_| EntryDecodeError::InvalidTypeError)?;
-        if ident != BlockMemberId::Record {
+        if ident != BlockEntryId::Record {
             return Err(EntryDecodeError::WrongTypeError);
         }
         let tombstone = fields[5]
@@ -178,5 +178,13 @@ impl ConcreteBlockEntry for Record {
 
     fn get_sender_pk(&self) -> Vec<u8> {
         self.poster_pk.clone()
+    }
+
+    fn get_entry_type(&self) -> BlockEntryId {
+        BlockEntryId::Record
+    }
+
+    fn get_key(&self) -> String {
+        self.get_key().to_owned()
     }
 }

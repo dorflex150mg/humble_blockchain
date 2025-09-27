@@ -19,7 +19,7 @@ pub enum BlockIdError {
 
 /// `[BlockMemberId]` identifies a `[BlockEntry]` trait object as `[Transaction]` or `[Record]`.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum BlockMemberId {
+pub enum BlockEntryId {
     #[default]
     /// Identifies a `[BlockEntry]` trait object as `[Transaction]`.
     Transaction,
@@ -27,7 +27,7 @@ pub enum BlockMemberId {
     Record,
 }
 
-impl TryFrom<u8> for BlockMemberId {
+impl TryFrom<u8> for BlockEntryId {
     type Error = BlockIdError;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -39,7 +39,7 @@ impl TryFrom<u8> for BlockMemberId {
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<u8> for BlockMemberId {
+impl Into<u8> for BlockEntryId {
     fn into(self) -> u8 {
         match self {
             Self::Transaction => TRANSACTION_BLOCK_MEMBER_IDENTIFIER,
@@ -89,6 +89,12 @@ pub trait BlockEntry: Debug + Display + Send {
 
     /// Returns the String representation.
     fn to_string(&self) -> String;
+
+    /// Returns the Entry type id, an variant of `[BlockEntryId]`.
+    fn get_entry_type(&self) -> BlockEntryId;
+
+    /// Returns some type-specific unique key.
+    fn get_key(&self) -> String;
 }
 
 impl<T> BlockEntry for T
@@ -116,6 +122,12 @@ where
     fn to_string(&self) -> String {
         self.to_string()
     }
+    fn get_key(&self) -> String {
+        self.get_key()
+    }
+    fn get_entry_type(&self) -> BlockEntryId {
+        self.get_entry_type()
+    }
 }
 
 /// Helper trait for concrete `[BlockEntry]` implementing types.
@@ -131,4 +143,8 @@ pub trait ConcreteBlockEntry {
     fn get_tokens(&self) -> Vec<Token>;
     /// Returns the sender `[Wallet]`s public key.
     fn get_sender_pk(&self) -> Vec<u8>;
+    /// Returns the Entry type id, an variant of `[BlockEntryId]`.
+    fn get_entry_type(&self) -> BlockEntryId;
+    /// Returns some type-specific unique key.
+    fn get_key(&self) -> String;
 }

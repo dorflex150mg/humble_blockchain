@@ -1,8 +1,9 @@
-use crate::block::block::{Block, Hash};
+use crate::block::block::{Block, Hash, RecordOffset};
 use crate::miner::miner::MiningDigest;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::{
     cmp::{Eq, Ord, PartialEq, PartialOrd},
     fmt,
@@ -17,6 +18,8 @@ const INTERVAL: u64 = 60;
 /// Struct representing a blockchain with a vector of blocks, length, and mining difficulty.
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Chain {
+    index: HashMap<String, usize>,
+    last_block_offset: usize,
     id: Uuid,
     blocks: Vec<Block>,
     len: usize,
@@ -116,16 +119,17 @@ impl Chain {
     #[must_use]
     pub fn new() -> Self {
         let genesis_block = Block::new(0, Hash::default(), String::new(), Some(Hash::default()));
-        let id = Uuid::new_v4();
         let mut chain = Chain {
-            id,
+            index: HashMap::new(),
+            last_block_offset: 0,
+            id: Uuid::new_v4(),
             blocks: vec![],
             len: 0,
             difficulty: 1,
         };
-        let genesis_mining_digest = MiningDigest::new(genesis_block, 0);
+        let genesis_mining_digest = MiningDigest::new(vec![], genesis_block, 0);
         #[allow(clippy::unwrap_used)]
-        chain.add_block(&genesis_mining_digest).unwrap();
+        chain.add_block(genesis_mining_digest).unwrap();
         chain
     }
 
@@ -211,6 +215,29 @@ impl Chain {
         self.blocks.iter().last().unwrap().clone() // It is impossible to have a chain with 0 blocks.
     }
 
+    /// Updates the index.
+    #[allow(clippy::unwrap_used)]
+    fn update_index(&mut self, offsets: &Vec<RecordOffset>) {
+        let modified_keys: Vec<String> = offsets.iter().map(RecordOffset::get_key).collect();
+        let new_index: HashMap<String, usize> = self
+            .index
+            .iter()
+            .filter(|(key, _)| modified_keys.contains(key))
+            .map(|(key, _)| {
+                (
+                    key.clone(),
+                    offsets
+                        .iter()
+                        .find(|e| e.get_key() == *key)
+                        .unwrap()
+                        .get_offset()
+                        + self.last_block_offset,
+                )
+            })
+            .collect();
+        self.index = new_index;
+    }
+
     /// Adds a new block to the chain after validating its data, hash, and index.
     ///
     /// # Arguments
@@ -219,7 +246,7 @@ impl Chain {
     ///
     /// # Returns
     /// A `Result` which is `Ok` if the block is added successfully or contains a `BlockCheckError` if the block is invalid.
-    pub fn add_block(&mut self, mining_digest: &MiningDigest) -> Result<(), BlockCheckError> {
+    pub fn add_block(&mut self, mining_digest: MiningDigest) -> Result<(), BlockCheckError> {
         let block = mining_digest.get_block();
         let nonce = mining_digest.get_nonce();
         if block.index != 0 {
@@ -242,6 +269,7 @@ impl Chain {
         }
         self.blocks.push(block);
         self.len += 1;
+        self.update_index(&mining_digest.get_record_offsets());
         Ok(())
     }
 

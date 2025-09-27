@@ -109,6 +109,40 @@ macro_rules! get_block_entries {
     }};
 }
 
+/// Represents the offset in bytes between the start of the `[Block]` string representation and the
+/// start of a `[Record]` in the `data` section.
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RecordOffset {
+    key: String,
+    offset: usize,
+}
+
+impl RecordOffset {
+    /// Creates a new `[BlockOffset]` with the `[Record]` key.
+    #[must_use]
+    pub fn new(key: String, offset: usize) -> Self {
+        RecordOffset { key, offset }
+    }
+
+    /// Returns the key that identifies this `[RecordOffset]`.
+    #[must_use]
+    pub fn get_key(&self) -> String {
+        self.key.clone()
+    }
+
+    /// Returns the key that identifies this `[RecordOffset]` and consumes it.
+    #[must_use]
+    pub fn into_key(self) -> String {
+        self.key
+    }
+
+    /// Returns the offset.
+    #[must_use]
+    pub fn get_offset(&self) -> usize {
+        self.offset
+    }
+}
+
 /// Represents a block in the blockchain.
 /// A block contains a list of transactions, a hash of the previous block, and its own hash.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -122,6 +156,7 @@ pub struct Block {
     /// The hash of the current block.
     /// This field is calculated based on the block's contents and ensures data integrity.
     pub hash: Hash,
+
     /// The data contained in the block.
     /// This typically includes a list of transactions or other relevant information.
     pub data: String,

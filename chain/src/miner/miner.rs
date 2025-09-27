@@ -1,9 +1,9 @@
-use crate::block::block::{self, Block, Hash};
+use crate::block::block::{self, Block, Hash, RecordOffset};
 use crate::chain::Chain;
 
 use wallet::block_chain::BlockChainBlock;
 use wallet::token::Token;
-use wallet::transaction::block_entry_common::BlockEntry;
+use wallet::transaction::block_entry_common::{BlockEntry, BlockEntryId};
 use wallet::transaction::transaction::Transaction;
 use wallet::wallet::Wallet;
 
@@ -12,6 +12,9 @@ use std::cmp;
 use std::fmt;
 
 use thiserror::Error;
+
+/// Block offset until the beginning of the data block.
+const OFFSET: usize = 177;
 
 /// A zeroed-out wallet public key.
 /// This constant is used to represent a zero wallet, often used in transactions involving mining rewards.
@@ -32,6 +35,7 @@ pub struct ChainMeta {
 /// Contains a block and the nonce used to mine it.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MiningDigest {
+    offsets: Vec<RecordOffset>,
     block: Block,
     nonce: u64,
 }
@@ -46,8 +50,12 @@ impl MiningDigest {
     /// # Returns
     /// * `Self` - The newly created `MiningDigest`.
     #[must_use]
-    pub fn new(block: Block, nonce: u64) -> Self {
-        MiningDigest { block, nonce }
+    pub fn new(offsets: Vec<RecordOffset>, block: Block, nonce: u64) -> Self {
+        MiningDigest {
+            offsets,
+            block,
+            nonce,
+        }
     }
 
     /// Retrieves the block from the mining digest.
@@ -66,6 +74,12 @@ impl MiningDigest {
     #[must_use]
     pub fn get_nonce(&self) -> u64 {
         self.nonce
+    }
+
+    /// Retrieves the `[RecordOffset]`s of the block in this mining digest and consumes the mining digest.
+    #[must_use]
+    pub fn get_record_offsets(self) -> Vec<RecordOffset> {
+        self.offsets
     }
 }
 
@@ -152,11 +166,9 @@ impl Miner {
                 );
                 let signed_prize = self.wallet.sign(prize_transaction);
                 self.entries
-                    .push(Box::new(signed_prize) as Box<dyn BlockEntry>); //TODO: this should be the 1st tx
-                return Ok(MiningDigest::new(
-                    self.create_new_block(str_digest, block.hash.clone()),
-                    block.nonce,
-                ));
+                    .push(Box::new(signed_prize) as Box<dyn BlockEntry>); //TODO: this should be the 1st tx.
+                let (new_block, offsets) = self.create_new_block(str_digest, block.hash.clone());
+                return Ok(MiningDigest::new(offsets, new_block, block.nonce));
             }
         }
     }
@@ -203,18 +215,51 @@ impl Miner {
     ///
     /// # Returns
     /// * `Block` - The newly created block.
-    pub fn create_new_block(&mut self, hash: Hash, previous_hash: Hash) -> Block {
+    pub fn create_new_block(
+        &mut self,
+        hash: Hash,
+        previous_hash: Hash,
+    ) -> (Block, Vec<RecordOffset>) {
         let index: usize = self.chain.get_len() + 1;
         let cap: usize = cmp::min(self.entries.len(), block::MAX_TRANSACTIONS);
         let capped_entries: Vec<Box<dyn BlockEntry>> = self.entries.drain(0..cap).collect();
+
+        // Entries as string.
         let encoded_entries: Vec<String> = capped_entries
             .iter()
             .map(|entry| entry.clone_box().to_string())
             .collect();
+        // Extract sizes.
+        let sizes: Vec<usize> = encoded_entries
+            .iter()
+            .map(std::string::String::len)
+            .collect();
+        // Entry keys paired with their sizes, but Transactions filtered out.
+        let keys_sizes: Vec<(Option<String>, usize)> = capped_entries
+            .iter()
+            .zip(sizes)
+            .map(|(entry, len)| {
+                let key = match entry.get_entry_type() {
+                    BlockEntryId::Transaction => None,
+                    BlockEntryId::Record => Some(entry.get_key()),
+                };
+                (key, len)
+            })
+            .collect();
+        // Accumulate sizes to calculate offsets.
+        let mut cur = OFFSET;
+        let mut offsets: Vec<RecordOffset> = vec![];
+        for (entry, size) in keys_sizes {
+            if let Some(entry) = entry {
+                offsets.push(RecordOffset::new(entry, cur));
+            }
+            cur += size;
+        }
+
         let data: String = encoded_entries.join("");
         self.wallet.add_coin(hash.clone().into());
 
-        Block::new(index, previous_hash, data, Some(hash))
+        (Block::new(index, previous_hash, data, Some(hash)), offsets)
     }
 }
 
