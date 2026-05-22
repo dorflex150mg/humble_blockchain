@@ -8,6 +8,10 @@ pub enum StoreError {
     LoadError,
     #[error("Attempted to load string from an empty file.")]
     EmptyFile,
+    #[error("Failed to setup Store.")]
+    SetupError,
+    #[error("Failed to prepare Store query.")]
+    PrepareError,
 }
 
 pub trait Engine {
